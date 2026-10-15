@@ -129,9 +129,16 @@ export function normalizeChatGptWebStorageState(value: unknown): ChatGptWebStora
   if (!isRecord(value) || !Array.isArray(value.cookies) || !Array.isArray(value.origins)) {
     throw new Error("ChatGPT Web browser storage state is invalid");
   }
-  for (const cookie of value.cookies) validateCookie(cookie);
-  for (const origin of value.origins) validateOrigin(origin);
   const state = structuredClone(value) as unknown as ChatGptWebStorageState;
+  // Browser exports can omit expires for session cookies. Playwright uses -1.
+  // Normalize the omission before applying the strict first-party checks.
+  for (const cookie of state.cookies) {
+    if (isRecord(cookie) && !Object.prototype.hasOwnProperty.call(cookie, "expires")) {
+      cookie.expires = -1;
+    }
+    validateCookie(cookie);
+  }
+  for (const origin of state.origins) validateOrigin(origin);
   // `__Host-` cookies must be host-only: no Domain attribute, Path=/, Secure.
   // Browsers reject them when injected with a leading-dot domain (#15500).
   for (const cookie of state.cookies) {

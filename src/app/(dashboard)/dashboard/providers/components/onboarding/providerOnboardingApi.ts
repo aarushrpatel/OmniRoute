@@ -156,7 +156,11 @@ export async function validateOnboardingApiKey(
     input,
     "Provider credentials are not valid"
   );
-  const response = await fetch("/api/providers/validate", {
+  const validationEndpoint =
+    payload.provider === "chatgpt-web"
+      ? "/api/providers/chatgpt-web/validate-storage-state"
+      : "/api/providers/validate";
+  const response = await fetch(validationEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

@@ -237,6 +237,10 @@ export default function EditConnectionModal({
   const isLocalSelfHostedProvider = !!localProviderMetadata;
   const isGooglePse = provider === "google-pse-search";
   const isChatGptWebCodex = provider === "chatgpt-web-codex";
+  const validationEndpoint =
+    provider === "chatgpt-web"
+      ? "/api/providers/chatgpt-web/validate-storage-state"
+      : "/api/providers/validate";
   const isAwsPolly = provider === "aws-polly";
   const isM365TierCapable = isM365TierCapableProvider(provider);
   const webSessionCredential = getWebSessionCredentialRequirement(provider);
@@ -485,7 +489,7 @@ export default function EditConnectionModal({
     setValidating(true);
     setValidationResult(null);
     try {
-      const res = await fetch("/api/providers/validate", {
+      const res = await fetch(validationEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -589,7 +593,7 @@ export default function EditConnectionModal({
           try {
             setValidating(true);
             setValidationResult(null);
-            const res = await fetch("/api/providers/validate", {
+            const res = await fetch(validationEndpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
