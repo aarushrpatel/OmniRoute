@@ -237,7 +237,15 @@ omniroute tokens revoke <id|prefix>   # takojšen preklic
 omniroute tokens scopes               # razloži tri obsege
 ```
 
-Ukazi `tokens` zahtevajo poverilnico **skrbnika**. Žetone lahko upravljate tudi na nadzorni plošči v razdelku **Nastavitve → Žetoni za dostop** (ustvarjanje, preklic, enkratno kopiranje).
+Ukazi `tokens` zahtevajo poverilnico **admin**. Žetone lahko upravljate tudi na
+nadzorni plošči pod **Nastavitve → Žetoni za dostop** (ustvarjanje, preklic, enkratno kopiranje).
+
+Žetona nikoli ni mogoče izdati z več pravicami, kot jih ima njegov ustvarjalec.
+Žeton `admin` lahko ustvari samo upravljavec — prek seje nadzorne plošče,
+lokalnega vmesnika CLI na samem strežniku, ukaza `omniroute connect` z geslom ali
+primerka z onemogočeno prijavo. Strojne poverilnice (žeton za dostop `admin`
+ali ključ API z obsegom `manage`/`admin`) lahko izdajajo samo žetone `write` in
+`read`; zahteva za `--scope admin` vrne `403`.
 
 ---
 

@@ -902,52 +902,52 @@ X-OmniRoute-No-Cache: true
 
 ---
 
-## Dashboard & Njikwa
+## Dashboard & Nchịkwa
 
-Ụzọ njikwa (`/api/*` ma e wezụga auth/login ọha) anaghị enye ikike site na
-API keys inference nkịtị. Maka ụdị nzere, scopes, na ihe atụ curl:
-[Ozi Nyocha Njikwa](../guides/MANAGEMENT-AUTH.md).
+Ụzọ njikwa (`/api/*` ewezuga auth/login ọha) anaghị enye ikike site na
+igodo API inference nkịtị. Maka ụdị nzere, scopes, na ihe atụ curl:
+[Nyocha njirimara maka njikwa](../guides/MANAGEMENT-AUTH.md).
 
-### Ozi Nyocha
+### Nyocha njirimara
 
-| Endpoint                      | Usoro   | Nkọwa                      |
-| ----------------------------- | ------- | -------------------------- |
-| `/api/auth/login`             | POST    | Banye                      |
-| `/api/auth/logout`            | POST    | Pụọ                        |
-| `/api/settings/require-login` | GET/PUT | Gbanyụọ/gbanye mkpa ịbanye |
+| Endpoint                      | Usoro   | Nkọwa                    |
+| ----------------------------- | ------- | ------------------------ |
+| `/api/auth/login`             | POST    | Banye                    |
+| `/api/auth/logout`            | POST    | Pụọ                      |
+| `/api/settings/require-login` | GET/PUT | Gbanwee ma achọrọ ịbanye |
 
-### Njikwa Provider
+### Nchịkwa Provider
 
-| Endpoint                                | Usoro                     | Nkọwa                                                                                                                                               |
-| --------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/providers`                        | GET/POST                  | Depụta / mepụta providers                                                                                                                           |
-| `/api/providers/[id]`                   | GET/PUT/DELETE            | Jikwaa otu provider                                                                                                                                 |
-| `/api/providers/[id]/test`              | POST                      | Nwalee njikọ provider                                                                                                                               |
-| `/api/providers/[id]/models`            | GET                       | Depụta models nke provider                                                                                                                          |
-| `/api/providers/validate`               | POST                      | Nyochaa nhazi provider                                                                                                                              |
-| `/api/providers/bulk`                   | POST                      | Tinye ọtụtụ API keys maka OTU provider                                                                                                              |
-| `/api/providers/import`                 | POST                      | Bubata NDEPỤTA providers dịgasị iche site na faịlụ CSV/JSON a tụgharịrị (#6836); nsonaazụ ọdịda nke akụkụ ụfọdụ maka ahịrị ọ bụla                   |
-| `/api/provider-nodes*`                  | Dịgasị iche               | Njikwa node nke provider                                                                                                                            |
-| `/api/provider-models`                  | GET/POST/PUT/PATCH/DELETE | Models omenala na overrides nke model ọ bụla (tinye, melite, zoo/gosi, hichapụ)                                                                     |
-| `/api/provider-models/validate-and-add` | POST                      | Nkwado njikọ siri ike a họọrọ nke nwere ozi nyocha njikwa na ndebanye model omenala n'ụzọ atomic; lee [Nkwado model](../guides/MODEL-VALIDATION.md) |
+| Endpoint                                | Usoro                     | Nkọwa                                                                                                                                                          |
+| --------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/providers`                        | GET/POST                  | Depụta / mepụta providers                                                                                                                                      |
+| `/api/providers/[id]`                   | GET/PUT/DELETE            | Jikwaa otu provider                                                                                                                                            |
+| `/api/providers/[id]/test`              | POST                      | Nwalee njikọ provider                                                                                                                                          |
+| `/api/providers/[id]/models`            | GET                       | Depụta models nke provider                                                                                                                                     |
+| `/api/providers/validate`               | POST                      | Nyochaa config provider                                                                                                                                        |
+| `/api/providers/bulk`                   | POST                      | Tinye igodo API n'ọtụtụ maka OTU provider                                                                                                                      |
+| `/api/providers/import`                 | POST                      | Bubata NDEPỤTA providers dịgasị iche site na faịlụ CSV/JSON a tụgharịrị (#6836); nsonaazụ ọdịda akụkụ n'ahịrị ọ bụla                                           |
+| `/api/provider-nodes*`                  | Dịgasị iche               | Nchịkwa node provider                                                                                                                                          |
+| `/api/provider-models`                  | GET/POST/PUT/PATCH/DELETE | Models omenala na overrides nke model ọ bụla (tinye, melite, zoo/gosi, hichapụ)                                                                                |
+| `/api/provider-models/validate-and-add` | POST                      | Nyocha njikọ siri ike nke njikwa nyochara njirimara, nke a na-ahọrọ iji, yana ndebanye model omenala atomic; lee [Nyocha model](../guides/MODEL-VALIDATION.md) |
 
-Maka models e mekọrịtara/e bubatara, `PUT /api/provider-models` na-anabata `provider`, `modelId`, na
-`maxOutputTokenOverride`: integer dị mma na-edobe oke output-token nke aka, ebe `null`
-na-ewepụ ya iji weghachi ndabara. `GET /api/provider-models?provider=<provider>` na-eweghachi
+Maka models emekọrịtara/bubatara, `PUT /api/provider-models` na-anabata `provider`, `modelId`, na
+`maxOutputTokenOverride`: integer dị mma na-edobe oke output-token eji aka tọọ, ebe `null`
+na-ehichapụ ya iji weghachite ndabara. `GET /api/provider-models?provider=<provider>` na-eweghachi
 ụkpụrụ ndị a n'ime `modelOutputOverrides`, gụnyere models na-enweghị ahịrị custom-model. Override ahụ
-na-eji ikike runtime `max_output_tokens` ma na-adịgide mgbe e mekọrịtara model ọzọ. Peeji provider
-dakọtara na OpenAI na-enyekwa njikwa ndezi/mwepụ ndị ahụ ma na-akara models nwere nkwado vision doro anya.
+na-eji ikike runtime `max_output_tokens` ma na-adịgide mgbe emekọrịtara model ọzọ. Peeji provider dakọtara na OpenAI
+na-enye otu njikwa ndezi/nhichapụ ahụ ma na-akanye models nwere nkwado vision akọwapụtara nke ọma.
 
-Nodes Custom Chat Completions na-emegharị nkwụsị reasoning doro anya ka o kwekọọ na backend dị n'elu. Nnwale
+Nodes Custom Chat Completions na-eme ka ịjụ reasoning akọwapụtara kwekọọ na backend dị n'elu. Nnwale
 njikọ gara nke ọma na-ahọrọ njikwa chat-template na-akpaghị aka maka ID model ọ bụla kpọmkwem
 nke ntinye `/models` ya gosipụtara ụkpụrụ `owned_by` a maara: `vllm`, `sglang`, ma ọ bụ `llamacpp`.
-Wrappers dakọtara na OpenAI nke na-agafe ozi n'enweghị mgbanwe nwere ike idobe ntinye model mbụ n'ime
-object `openai` dị n'ime; nchọpụta na-agbaso envelopes dị otu a ruo atọ. Models nwere ownership na-efu,
-nke a na-amaghị, ma ọ bụ nke na-emegiderịta onwe ya na-edobe omume OpenAI nkịtị. Nchọpụta ahụ na-eji arịrịọ
-catalog dị ugbu a ọzọ, anaghị emepụta completion tokens ọ bụla, a na-emekwa ka ọ ghara ịdị irè mgbe endpoint njikọ gbanwere.
+Wrappers dakọtara na OpenAI ma doo anya nwere ike idowe ntinye model mbụ n'ime object
+`openai` dị n'ime; nchọpụta na-agbaso ruo envelopes atọ dị otu a. Models nwere ownership na-efu, amaghị,
+ma ọ bụ na-emegiderịta onwe ya na-edobe omume OpenAI nkịtị. Nchọpụta na-eji arịrịọ catalog dị adị ọzọ,
+anaghị emepụta completion tokens ọ bụla, a na-emekwa ka ọ gharazie ịdị irè mgbe endpoint njikọ gbanwere.
 
-Iji mee ka omume ahụ guzosie ike maka backend na-adịghị egosi metadata ahụ, jiri API mmelite
-provider nke akụkụ ụfọdụ dị ugbu a:
+Iji kpọchie omume ahụ maka backend na-adịghị ekpughe metadata ahụ, jiri API provider update nke akụkụ
+dị adị:
 
 ```json
 {
@@ -957,30 +957,30 @@ provider nke akụkụ ụfọdụ dị ugbu a:
 }
 ```
 
-Zipụ body ahụ site na `PUT /api/providers/<connection-id>`. Na njikọ ahụ, a na-eziga
-reasoning effort doro anya nke `none` dịka `chat_template_kwargs.thinking=false` na
-`chat_template_kwargs.enable_thinking=false`. Ụkpụrụ native template doro anya ka bụ ndị kacha nwee ikike
-ọ gwụla ma iwu reasoning dị n'akụkụ server amanye otu effort. Ntọala ahụ na-emetụta naanị mgbe njikọ
-omenala dakọtara na OpenAI zipụrụ body Chat Completions; arịrịọ Responses na providers nkịtị
-na-edobe ọdịdị arịrịọ native ha. Tọọ `reasoningControl` ka ọ bụrụ `openai` iji manye nnyefe OpenAI
+Ziga body ahụ site na `PUT /api/providers/<connection-id>`. Na njikọ ahụ, a na-eziga
+reasoning effort akọwapụtara nke `none` dị ka `chat_template_kwargs.thinking=false` na
+`chat_template_kwargs.enable_thinking=false`. Ụkpụrụ native template akọwapụtara ka bụ ndị nwere ikike ikpeazụ
+ma ewezuga mgbe iwu reasoning dị n'akụkụ server manyere effort. Ntọala ahụ na-emetụta naanị mgbe njikọ
+OpenAI-compatible omenala zipụrụ body Chat Completions; arịrịọ Responses na providers nkịtị
+na-edobe ọdịdị arịrịọ native ha. Tọọ `reasoningControl` ka ọ bụrụ `openai` iji manye passthrough OpenAI
 `reasoning_effort` nkịtị, ma ọ bụ hapụ ya/tọọ ya ka ọ bụrụ `null` iji jiri nchọpụta akpaka.
 
-Arịrịọ classifier nke Claude Code auto-mode na-eme ka echiche ime bụrụ nke agbanyụrụ na ndabara mgbe ha enweghị
-njikwa ntụgharị uche akọwapụtara nke ọma. Nchọpụta na-eji akara system nke classifier dị na arịrịọ
-usoro Claude, ọ bụghị aha model ma ọ bụ oke completion. Njikwa body akọwapụtara, header effort/thinking
-akwadoro, iwu routing, na effort model e kpebiri na-edobe mkpa ha nwere ugbu a. Usoro classifier
-abụọ ahụ na-edobe prompt ha, oke completion, stop sequence, na mkpebi ikike upstream
-n'ezie; usoro nke abụọ ka nwere ike iwepụta ntụgharị uche a rịọrọ ka a hụ ya dịka ederede nkịtị.
+Arịrịọ classifier nke auto-mode Claude Code na-eme ka native thinking bụrụ nke agbanyụrụ na ndabara mgbe ha enweghị
+njikwa reasoning akọwapụtara. Nchọpụta na-eji akara system nke classifier dị n’arịrịọ ndị dị n’usoro Claude,
+ọ bụghị aha model ma ọ bụ oke completion. Njikwa body akọwapụtara, header effort/thinking ndị a na-akwado,
+iwu routing, na effort nke model e kpebiri na-aga n’ihu inwe mkpa ha dịbu. Ọkwa classifier
+abụọ ahụ na-edowe prompt ha, oke completion, stop sequence, na mkpebi ikike upstream nke bụ eziokwu;
+ọkwa nke abụọ ka nwere ike iwepụta reasoning a na-ahụ anya nke ọ rịọrọ dị ka ederede nkịtị.
 
 ### Usoro OAuth
 
-| Endpoint                         | Method       | Nkọwa                           |
+| Endpoint                         | Method       | Description                     |
 | -------------------------------- | ------------ | ------------------------------- |
 | `/api/oauth/[provider]/[action]` | Dị iche iche | OAuth akọwapụtara maka provider |
 
 ### Routing & Nhazi
 
-| Endpoint              | Method       | Nkọwa                           |
+| Endpoint              | Method       | Description                     |
 | --------------------- | ------------ | ------------------------------- |
 | `/api/models/alias`   | GET/POST     | Aha nnọchi model                |
 | `/api/models/catalog` | GET          | Model niile dịka provider + ụdị |
@@ -988,51 +988,51 @@ n'ezie; usoro nke abụọ ka nwere ike iwepụta ntụgharị uche a rịọr�
 | `/api/keys*`          | Dị iche iche | Njikwa API key                  |
 | `/api/pricing`        | GET          | Ọnụahịa model                   |
 
-### Ojiji & Ntụle Data
+### Ojiji & Ntụle
 
-| Endpoint                         | Method          | Nkọwa                                                                                                                                                                                                                                                                                |
-| -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/api/usage/history`             | GET             | Akụkọ ojiji                                                                                                                                                                                                                                                                          |
-| `/api/usage/logs`                | GET             | Ndekọ ojiji                                                                                                                                                                                                                                                                          |
-| `/api/usage/request-logs`        | GET             | Ndekọ n'ogo arịrịọ                                                                                                                                                                                                                                                                   |
-| `/api/usage/[connectionId]`      | GET             | Ojiji nke njikọ ọ bụla                                                                                                                                                                                                                                                               |
-| `/api/usage/token-limits`        | GET/POST/DELETE | Mmefu oke token maka API key ọ bụla                                                                                                                                                                                                                                                  |
-| `/api/usage/model-latency-stats` | GET             | Nchịkọta latency na-aga n'ihu maka provider/model ọ bụla (avg/p50/p95/p99, ọnụego ihe ịga nke ọma); nzacha: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                          |
-| `/api/usage/cache-health`        | GET             | Nchịkọta ọnọdụ prompt-cache n'elu `call_logs` — oke write/read, nkesa nha write p50/p90/p99, mkpokọta heavy-write, nkewa dịka model, yana mkpebi `healthy`/`degraded`/`thrash`/`no-data`; query params `range` (`1h`\|`24h`\|`7d`\|`30d`, ndabara bụ `24h`) na `model` nhọrọ (#8827) |
+| Endpoint                         | Method          | Description                                                                                                                                                                                                                                                                                         |
+| -------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/usage/history`             | GET             | Akụkọ ojiji                                                                                                                                                                                                                                                                                         |
+| `/api/usage/logs`                | GET             | Ndekọ ojiji                                                                                                                                                                                                                                                                                         |
+| `/api/usage/request-logs`        | GET             | Ndekọ n’ogo arịrịọ                                                                                                                                                                                                                                                                                  |
+| `/api/usage/[connectionId]`      | GET             | Ojiji nke njikọ ọ bụla                                                                                                                                                                                                                                                                              |
+| `/api/usage/token-limits`        | GET/POST/DELETE | Atụmatụ oke token maka API key ọ bụla                                                                                                                                                                                                                                                               |
+| `/api/usage/model-latency-stats` | GET             | Nchịkọta latency na-aga n’ihu maka provider/model ọ bụla (avg/p50/p95/p99, ọnụego ihe ịga nke ọma); nzacha: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                                         |
+| `/api/usage/cache-health`        | GET             | Nchịkọta ọnọdụ prompt-cache n’elu `call_logs` — oke write/read, nkesa nha write nke p50/p90/p99, mkpokọta heavy-write, nkewa maka model ọ bụla, yana mkpebi `healthy`/`degraded`/`thrash`/`no-data`; query params `range` (`1h`\|`24h`\|`7d`\|`30d`, ndabara `24h`) na `model` nke bụ nhọrọ (#8827) |
 
 ### Ikike API key
 
-`PATCH /api/keys/{id}` na-emelite ikike key dị adị. Dịka route `/api/keys*` ọ bụla, ọ chọrọ ikike njikwa (lee [Nyocha Njirimara Njikwa](../guides/MANAGEMENT-AUTH.md)), ọ bụghị inference key. Zipụ naanị field ndị ịchọrọ ịgbanwe; a ga-ajụ arịrịọ na-enweghị nke ọ bụla n'ime ha site na `No valid fields to update`. `updateKeyPermissionsSchema` dị na `src/shared/validation/schemas/keys.ts` na-akọwapụta field ndị a na-anabata.
+`PATCH /api/keys/{id}` na-emelite ikike nke key dị adị. Dịka route `/api/keys*` niile, ọ chọrọ ikike njikwa (lee [Nyocha Njirimara Njikwa](../guides/MANAGEMENT-AUTH.md)), ọ bụghị inference key. Zipụ naanị field ndị ịchọrọ ịgbanwe; a na-ajụ arịrịọ na-enweghị nke ọ bụla n’ime ha site na `No valid fields to update`. `updateKeyPermissionsSchema` dị na `src/shared/validation/schemas/keys.ts` na-akọwa field ndị a na-anabata.
 
-| Ogige                                       | Ụdị                                                                       | Nkọwa                                                                                                                                   |
-| ------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                      | eriri mkpụrụedemede, mkpụrụedemede 1-200                                  |                                                                                                                                         |
-| `isActive`                                  | boolean                                                                   |                                                                                                                                         |
-| `isBanned`                                  | boolean                                                                   |                                                                                                                                         |
-| `expiresAt`                                 | ụbọchị na oge ISO 8601 ma ọ bụ `null`                                     | `null` na-ewepụ oge ngwụcha                                                                                                             |
-| `modelAccessMode`                           | `all` \| `restricted`                                                     | `allowedModels` ga-abụrịrị ihe efu mgbe ọnọdụ ahụ bụ `all`                                                                              |
-| `allowedModels`, `blockedModels`            | nhazi eriri mkpụrụedemede, ruo 1000                                       |                                                                                                                                         |
-| `allowedCombos`                             | nhazi eriri mkpụrụedemede, ruo 500                                        | Na-achịkwa combos ndị igodo ahụ nwere ike ịkpọ; `modelAccessMode` / `allowedModels` na-achịkwa model ndị a na-akpọ ozugbo               |
-| `connectionAccessMode`                      | `all` \| `restricted`                                                     | `allowedConnections` agaghị abụ ihe efu mgbe ọ bụ `restricted`, ọ ga-abụkwa ihe efu mgbe ọ bụ `all`                                     |
-| `allowedConnections`                        | nhazi UUID, ruo 100                                                       |                                                                                                                                         |
-| `allowAutoCombos`                           | boolean                                                                   | `false` na-ajụ arịrịọ maka model `auto/*` e ji igodo a mee; a na-ekwe igodo ndị na-etinyebeghị ya                                       |
-| `catalogScope`                              | `all` \| `combos` \| `models`                                             | Ihe `GET /v1/models` na-edepụta maka igodo a (naanị combos, naanị model, ma ọ bụ ha abụọ); ọ naghị agbanwe ihe igodo ahụ nwere ike ịkpọ |
-| `noLog`, `autoResolve`                      | boolean                                                                   |                                                                                                                                         |
-| `throttleDelayMs`                           | ọnụọgụ zuru ezu, 0-300000                                                 |                                                                                                                                         |
-| `maxSessions`                               | ọnụọgụ zuru ezu, 0-10000                                                  |                                                                                                                                         |
-| `rateLimits`                                | nhazi `{ limit, window }` (ọnụọgụ zuru ezu dị mma, ruo 50) ma ọ bụ `null` | `null` na-ewepụ oke ndị ahụ                                                                                                             |
-| `accessSchedule`                            | ihe nhazi oge ma ọ bụ `null`                                              | `null` na-ewepụ nhazi oge ahụ                                                                                                           |
-| `scopes`                                    | nhazi eriri mkpụrụedemede, ruo 32                                         |                                                                                                                                         |
-| `allowedEndpoints`                          | nhazi eriri mkpụrụedemede, ruo 20                                         |                                                                                                                                         |
-| `streamDefaultMode`                         | `legacy` \| `json`                                                        |                                                                                                                                         |
-| `cacheDefaultMode`                          | `legacy` \| `bypass`                                                      | Lee [Ịgafe cache maka igodo ọ bụla](#per-key-cache-bypass)                                                                              |
-| `compressionEnabled`                        | boolean                                                                   |                                                                                                                                         |
-| `codexServiceMode`                          | otu n'ime ọnọdụ ọrụ Codex                                                 |                                                                                                                                         |
-| `disableNonPublicModels`                    | boolean                                                                   |                                                                                                                                         |
-| `allowUsageCommand`                         | boolean                                                                   |                                                                                                                                         |
-| `usageLimitEnabled`                         | boolean                                                                   |                                                                                                                                         |
-| `dailyUsageLimitUsd`, `weeklyUsageLimitUsd` | ọnụọgụ >= 0 ma ọ bụ `null`                                                |                                                                                                                                         |
-| `chaosModeEnabled`                          | boolean                                                                   |                                                                                                                                         |
+| Oghere                                      | Ụdị                                                                        | Nkọwa                                                                                                                                  |
+| ------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                      | eriri mkpụrụedemede, mkpụrụedemede 1-200                                   |                                                                                                                                        |
+| `isActive`                                  | búlịn                                                                      |                                                                                                                                        |
+| `isBanned`                                  | búlịn                                                                      |                                                                                                                                        |
+| `expiresAt`                                 | oge na ụbọchị ISO 8601 ma ọ bụ `null`                                      | `null` na-ewepụ oge ngafe                                                                                                              |
+| `modelAccessMode`                           | `all` \| `restricted`                                                      | `allowedModels` ga-abụrịrị ihe efu mgbe ọnọdụ ahụ bụ `all`                                                                             |
+| `allowedModels`, `blockedModels`            | n'usoro eriri, ruo 1000                                                    |                                                                                                                                        |
+| `allowedCombos`                             | n'usoro eriri, ruo 500                                                     | Na-achịkọta combo ndị igodo ahụ nwere ike ịkpọ; `modelAccessMode` / `allowedModels` na-achịkwa model ndị a na-akpọ ozugbo              |
+| `connectionAccessMode`                      | `all` \| `restricted`                                                      | `allowedConnections` agaghị abụ ihe efu mgbe ọ bụ `restricted`, ọ ga-abụkwa ihe efu mgbe ọ bụ `all`                                    |
+| `allowedConnections`                        | n'usoro UUID, ruo 100                                                      |                                                                                                                                        |
+| `allowAutoCombos`                           | búlịn                                                                      | `false` na-ajụ arịrịọ maka model `auto/*` ndị ji igodo a; a na-anabata igodo ndị a na-edobeghị ya                                      |
+| `catalogScope`                              | `all` \| `combos` \| `models`                                              | Ihe `GET /v1/models` na-edepụta maka igodo a (naanị combo, naanị model, ma ọ bụ ha abụọ); ọ naghị agbanwe ihe igodo ahụ nwere ike ịkpọ |
+| `noLog`, `autoResolve`                      | búlịn                                                                      |                                                                                                                                        |
+| `throttleDelayMs`                           | nọmba zuru ezu, 0-300000                                                   |                                                                                                                                        |
+| `maxSessions`                               | nọmba zuru ezu, 0-10000                                                    |                                                                                                                                        |
+| `rateLimits`                                | n'usoro `{ limit, window }` (nọmba zuru ezu dị mma, ruo 50) ma ọ bụ `null` | `null` na-ewepụ oke ndị ahụ                                                                                                            |
+| `accessSchedule`                            | ihe nhazi oge ma ọ bụ `null`                                               | `null` na-ewepụ nhazi oge ahụ                                                                                                          |
+| `scopes`                                    | n'usoro eriri, ruo 32                                                      |                                                                                                                                        |
+| `allowedEndpoints`                          | n'usoro eriri, ruo 20                                                      |                                                                                                                                        |
+| `streamDefaultMode`                         | `legacy` \| `json`                                                         |                                                                                                                                        |
+| `cacheDefaultMode`                          | `legacy` \| `bypass`                                                       | Lee [Ịgafe cache n'otu igodo](#per-key-cache-bypass)                                                                                   |
+| `compressionEnabled`                        | búlịn                                                                      |                                                                                                                                        |
+| `codexServiceMode`                          | otu n'ime ọnọdụ ọrụ Codex                                                  |                                                                                                                                        |
+| `disableNonPublicModels`                    | búlịn                                                                      |                                                                                                                                        |
+| `allowUsageCommand`                         | boolean                                                                    |                                                                                                                                        |
+| `usageLimitEnabled`                         | boolean                                                                    |                                                                                                                                        |
+| `dailyUsageLimitUsd`, `weeklyUsageLimitUsd` | number >= 0 ma ọ bụ `null`                                                 |                                                                                                                                        |
+| `chaosModeEnabled`                          | boolean                                                                    |                                                                                                                                        |
 
 ```bash
 curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
@@ -1048,146 +1048,150 @@ curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
 | `/api/settings`                       | GET/PUT/PATCH | Ntọala izugbe                                                                                                                                                                         |
 | `/api/settings/proxy`                 | GET/PUT       | Nhazi proxy netwọkụ                                                                                                                                                                   |
 | `/api/settings/proxy/test`            | POST          | Nwalee njikọ proxy                                                                                                                                                                    |
-| `/api/settings/ip-filter`             | GET/PUT       | Ndepụta IP ndị anabatara/ndepụta ndị egbochiri                                                                                                                                        |
-| `/api/settings/thinking-budget`       | GET/PUT       | Ụdị ndegharị **arịrịọ** maka echiche/ntụgharị uche (passthrough / auto-strip / custom / adaptive). Ọ nọọrọ onwe ya na mkpakọ. Lee [THINKING_BUDGET.md](../guides/THINKING_BUDGET.md). |
+| `/api/settings/ip-filter`             | GET/PUT       | Ndepụta IP ndị ekwekwara/ndepụta ndị egbochiri                                                                                                                                        |
+| `/api/settings/thinking-budget`       | GET/PUT       | Ụdị idegharị **arịrịọ** maka echiche/ịtụgharị uche (passthrough / auto-strip / custom / adaptive). Ọ nọọrọ onwe ya na mkpakọ. Lee [THINKING_BUDGET.md](../guides/THINKING_BUDGET.md). |
 | `/api/settings/system-prompt`         | GET/PUT       | System prompt zuru ụwa ọnụ                                                                                                                                                            |
 | `/api/settings/compression`           | GET/PUT       | Nhazi mkpakọ zuru ụwa ọnụ                                                                                                                                                             |
-| `/api/settings/purge-request-history` | POST          | Hichapụ ahịrị ndekọ arịrịọ na artifact ndekọ oku dị na mpaghara                                                                                                                       |
+| `/api/settings/purge-request-history` | POST          | Hichapụ ahịrị ndekọ arịrịọ na arịa ndekọ oku mpaghara                                                                                                                                 |
 
 ### Context na Mkpakọ
 
-| Endpoint                               | Method         | Nkọwa                                                                     |
-| -------------------------------------- | -------------- | ------------------------------------------------------------------------- |
-| `/api/compression/preview`             | POST           | Lelee mkpakọ off/lite/standard/aggressive/ultra/RTK/stacked tupu oge eruo |
-| `/api/compression/language-packs`      | GET            | Depụta ngwugwu asụsụ Caveman ndị dị                                       |
-| `/api/compression/rules`               | GET            | Depụta metadata iwu Caveman                                               |
-| `/api/context/caveman/config`          | GET/PUT        | Aha ọzọ maka ntọala Caveman kpọmkwem                                      |
-| `/api/context/rtk/config`              | GET/PUT        | Ntọala RTK kpọmkwem, gụnyere nzacha omenala na idowe raw-output           |
-| `/api/context/rtk/filters`             | GET            | Katalọgụ nzacha RTK na nchọpụta nsogbu nzacha omenala                     |
-| `/api/context/rtk/test`                | POST           | Mee nlele/nnwale RTK megide payload ederede                               |
-| `/api/context/rtk/raw-output/[id]`     | GET            | Gụọ raw output edoziri nke e debere site na pointer id                    |
-| `/api/context/combos`                  | GET/POST       | Depụta/mepụta combo mkpakọ                                                |
-| `/api/context/combos/[id]`             | GET/PUT/DELETE | Nkọwa/melite/hichapụ combo mkpakọ                                         |
-| `/api/context/combos/[id]/assignments` | GET/PUT        | Kenye combo mkpakọ na combo routing                                       |
-| `/api/context/analytics`               | GET            | Aha ọzọ maka analytics mkpakọ                                             |
+| Endpoint                               | Method         | Nkọwa                                                                      |
+| -------------------------------------- | -------------- | -------------------------------------------------------------------------- |
+| `/api/compression/preview`             | POST           | Lelee mkpakọ off/lite/standard/aggressive/ultra/RTK/stacked tupu etinye ya |
+| `/api/compression/language-packs`      | GET            | Depụta ngwugwu asụsụ Caveman ndị dị                                        |
+| `/api/compression/rules`               | GET            | Depụta metadata iwu Caveman                                                |
+| `/api/context/caveman/config`          | GET/PUT        | Utu aha ọzọ maka ntọala ndị metụtara Caveman                               |
+| `/api/context/rtk/config`              | GET/PUT        | Ntọala ndị metụtara RTK, gụnyere nzacha omenala na idowe raw-output        |
+| `/api/context/rtk/filters`             | GET            | Katalọgụ nzacha RTK na nchọpụta nsogbu nzacha omenala                      |
+| `/api/context/rtk/test`                | POST           | Mee nlele/nnwale RTK megide payload ederede                                |
+| `/api/context/rtk/raw-output/[id]`     | GET            | Gụọ raw output e deziri ma debe site na pointer id                         |
+| `/api/context/combos`                  | GET/POST       | Depụta/mepụta ngwakọta mkpakọ                                              |
+| `/api/context/combos/[id]`             | GET/PUT/DELETE | Nkọwa/mmelite/nhichapụ ngwakọta mkpakọ                                     |
+| `/api/context/combos/[id]/assignments` | GET/PUT        | Kenye ngwakọta mkpakọ na ngwakọta routing                                  |
+| `/api/context/analytics`               | GET            | Utu aha ọzọ maka nyocha data mkpakọ                                        |
 
 ### Nlekota
 
-| Endpoint                             | Method     | Description                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`                      | GET        | Nsochi nnọkọ ndị na-arụ ọrụ                                                                                                                                                                                                                                                                                                                                                                                           |
-| `/api/rate-limits`                   | GET        | Oke ọnụego maka akaụntụ ọ bụla                                                                                                                                                                                                                                                                                                                                                                                        |
-| `/api/monitoring/health`             | GET        | Nnyocha ahụike + nchịkọta ndị na-eweta ọrụ (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`). Nlele njikwa gụnyere `credentialHealth`: ụkpụrụ scalar nke cache nyocha, `failedConnections` mgbe `failed>0`, na `staleDbNonOkCount` (`test_status` SQLite na-anọgide otu, ọ bụghị gauge). Lee [MONITORING_GUIDE.md](../ops/MONITORING_GUIDE.md#credentialhealth-probe-cache-vs-sqlite-test_status). |
-| `/api/cache/stats`                   | GET/DELETE | Ọnụọgụ cache / hichapụ                                                                                                                                                                                                                                                                                                                                                                                                |
-| `/api/modality-bridge/stats`         | GET        | `attempts` dị na ebe nchekwa, ihe ịga nke ọma/`bridged`, ọdịda, cache hits, `totalLatencyMs`, `latencySamples`, `averageLatencyMs` nke ọnụ ọgụgụ sample na-ekpebi, na oge ojiji ikpeazụ (a na-atọgharị mgbe ebidoghachiri; chọrọ njirimara njikwa)                                                                                                                                                                    |
-| `/api/modality-bridge/video/runtime` | GET        | Nnyocha trusted-loopback siri ike tupu njirimara njikwa/nnyocha; nnweta na ụdị FFmpeg/ffprobe e mere ka ha dị nchebe (anaghị echekwa)                                                                                                                                                                                                                                                                                 |
-| `/api/modality-bridge/video/extract` | POST       | Broker byte trusted-loopback ime ụlọ nke nwere njirimara; ntinye 50 MiB, kwụ e nyere oke/mmepụta 32 MiB, `503` maka ikike, `499` maka nkwụsị njikọ, `504` maka oke oge; ọ bụghị API ebugote faịlụ ọha                                                                                                                                                                                                                 |
+| Endpoint                             | Usoro      | Nkọwa                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Nsochi nnọkọ ndị na-arụ ọrụ                                                                                                                                                                                                                                                                                                                                                                           |
+| `/api/rate-limits`                   | GET        | Oke ojiji maka akaụntụ ọ bụla                                                                                                                                                                                                                                                                                                                                                                         |
+| `/api/monitoring/health`             | GET        | Nnyocha ahụike + nchịkọta ndị na-eweta ọrụ (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`). Nlele njikwa gụnyere `credentialHealth`: ụkpụrụ probe-cache, `failedConnections` mgbe `failed>0`, na `staleDbNonOkCount` (`test_status` SQLite na-adịgide, ọ bụghị gauge). Lee [MONITORING_GUIDE.md](../ops/MONITORING_GUIDE.md#credentialhealth-probe-cache-vs-sqlite-test_status). |
+| `/api/cache/stats`                   | GET/DELETE | Ọnụọgụ cache / hichapụ                                                                                                                                                                                                                                                                                                                                                                                |
+| `/api/modality-bridge/stats`         | GET        | `attempts` dị na ebe nchekwa, ihe ịga nke ọma/`bridged`, ọdịda, cache hits, `totalLatencyMs`, `latencySamples`, `averageLatencyMs` nke sample kewara, na oge ojiji ikpeazụ (a na-emegharị ya mgbe e bidoro ọzọ; njirimara njikwa)                                                                                                                                                                     |
+| `/api/modality-bridge/video/runtime` | GET        | Nnyocha trusted-loopback siri ike tupu njirimara njikwa/probe; ozi e sachapụrụ banyere ịdị adị na ụdị FFmpeg/ffprobe (no-store)                                                                                                                                                                                                                                                                       |
+| `/api/modality-bridge/video/extract` | POST       | Byte broker trusted-loopback nke ime nke nwere njirimara; ntinye 50 MiB, kwụ nwere oke/mmepụta 32 MiB, `503` mgbe ikike juru, `499` mgbe njikọ kwụsịrị, `504` mgbe oge njedebe gafere; ọ bụghị API bulite faịlụ ọha                                                                                                                                                                                   |
 
-### Nkwado ndabere & Mbupụ/Mbubata
+### Ndabere & Mbupụ/Mbubata
 
-| Endpoint                    | Method | Description                                             |
-| --------------------------- | ------ | ------------------------------------------------------- |
-| `/api/db-backups`           | GET    | Depụta nkwado ndabere ndị dị                            |
-| `/api/db-backups`           | PUT    | Mepụta nkwado ndabere n'aka                             |
-| `/api/db-backups`           | POST   | Weghachite site na nkwado ndabere a kapịrị ọnụ          |
-| `/api/db-backups/export`    | GET    | Budata nchekwa data dịka faịlụ .sqlite                  |
-| `/api/db-backups/import`    | POST   | Bulite faịlụ .sqlite iji dochie nchekwa data            |
-| `/api/db-backups/exportAll` | GET    | Budata nkwado ndabere zuru ezu dịka ebe nchekwa .tar.gz |
+| Endpoint                    | Usoro | Nkọwa                                        |
+| --------------------------- | ----- | -------------------------------------------- |
+| `/api/db-backups`           | GET   | Depụta ndabere ndị dị                        |
+| `/api/db-backups`           | PUT   | Mepụta ndabere n'aka                         |
+| `/api/db-backups`           | POST  | Weghachite site na ndabere akọwapụtara       |
+| `/api/db-backups/export`    | GET   | Budata nchekwa data dịka faịlụ .sqlite       |
+| `/api/db-backups/import`    | POST  | Bulite faịlụ .sqlite iji dochie nchekwa data |
+| `/api/db-backups/exportAll` | GET   | Budata ndabere zuru ezu dịka archive .tar.gz |
+
+`/api/db-backups/export`, `/api/db-backups/exportAll` na `/api/settings/export-json` na-enye
+nzere niile echekwara, ya mere ha chọrọ nnọkọ dashboard ma ọ bụ CLI mpaghara (ma ọ bụ ka agbanyụọ
+nbanye). API keys nke scope ọ bụla na access tokens `oma_` na-enweta `403`.
 
 ### Mmekọrịta Cloud
 
-| Endpoint               | Method       | Description         |
+| Endpoint               | Usoro        | Nkọwa               |
 | ---------------------- | ------------ | ------------------- |
 | `/api/sync/cloud`      | Dị iche iche | Ọrụ mmekọrịta cloud |
-| `/api/sync/initialize` | POST         | Bido mmekọrịta      |
+| `/api/sync/initialize` | POST         | Malite mmekọrịta    |
 | `/api/cloud/*`         | Dị iche iche | Njikwa cloud        |
 
-### Tunnels
+### Ọwara
 
-| Endpoint                   | Method | Description                                                              |
-| -------------------------- | ------ | ------------------------------------------------------------------------ |
-| `/api/tunnels/cloudflared` | GET    | Gụọ ọnọdụ nrụnye/ọrụ Cloudflare Quick Tunnel maka dashboard              |
-| `/api/tunnels/cloudflared` | POST   | Gbanye ma ọ bụ gbanyụọ Cloudflare Quick Tunnel (`action=enable/disable`) |
-| `/api/tunnels/ngrok`       | GET    | Gụọ ọnọdụ ọrụ ngrok Tunnel maka dashboard                                |
-| `/api/tunnels/ngrok`       | POST   | Gbanye ma ọ bụ gbanyụọ ngrok Tunnel (`action=enable/disable`)            |
+| Endpoint                   | Usoro | Nkọwa                                                                    |
+| -------------------------- | ----- | ------------------------------------------------------------------------ |
+| `/api/tunnels/cloudflared` | GET   | Gụọ ọnọdụ nrụnye/ọrụ Cloudflare Quick Tunnel maka dashboard              |
+| `/api/tunnels/cloudflared` | POST  | Gbanye ma ọ bụ gbanyụọ Cloudflare Quick Tunnel (`action=enable/disable`) |
+| `/api/tunnels/ngrok`       | GET   | Gụọ ọnọdụ ọrụ ngrok Tunnel maka dashboard                                |
+| `/api/tunnels/ngrok`       | POST  | Gbanye ma ọ bụ gbanyụọ ngrok Tunnel (`action=enable/disable`)            |
 
 ### Ngwaọrụ CLI
 
-| Ebe njedebe                        | Usoro | Nkọwa              |
-| ---------------------------------- | ----- | ------------------ |
-| `/api/cli-tools/claude-settings`   | GET   | Ọnọdụ Claude CLI   |
-| `/api/cli-tools/codex-settings`    | GET   | Ọnọdụ Codex CLI    |
-| `/api/cli-tools/droid-settings`    | GET   | Ọnọdụ Droid CLI    |
-| `/api/cli-tools/openclaw-settings` | GET   | Ọnọdụ OpenClaw CLI |
-| `/api/cli-tools/runtime/[toolId]`  | GET   | Oge ọrụ CLI izugbe |
+| Endpoint                           | Usoro | Nkọwa                   |
+| ---------------------------------- | ----- | ----------------------- |
+| `/api/cli-tools/claude-settings`   | GET   | Ọnọdụ Claude CLI        |
+| `/api/cli-tools/codex-settings`    | GET   | Ọnọdụ Codex CLI         |
+| `/api/cli-tools/droid-settings`    | GET   | Ọnọdụ Droid CLI         |
+| `/api/cli-tools/openclaw-settings` | GET   | Ọnọdụ OpenClaw CLI      |
+| `/api/cli-tools/runtime/[toolId]`  | GET   | Oge-ngagharị CLI izugbe |
 
 Nzaghachi CLI gụnyere: `installed`, `runnable`, `command`, `commandPath`, `runtimeMode`, `reason`.
 
-### Ndị nnọchi anya ACP
+### Ndị Ọrụ ACP
 
-| Ebe njedebe       | Usoro  | Nkọwa                                                                               |
-| ----------------- | ------ | ----------------------------------------------------------------------------------- |
-| `/api/acp/agents` | GET    | Depụta ndị nnọchi anya niile achọpụtara (ndị e wuru n'ime ya + omenala) na ọnọdụ ha |
-| `/api/acp/agents` | POST   | Tinye onye nnọchi anya omenala ma ọ bụ mee ka cache nchọpụta dị ọhụrụ               |
-| `/api/acp/agents` | DELETE | Wepụ onye nnọchi anya omenala site na query param `id`                              |
+| Endpoint          | Usoro  | Nkọwa                                                                         |
+| ----------------- | ------ | ----------------------------------------------------------------------------- |
+| `/api/acp/agents` | GET    | Depụta ndị ọrụ niile achọpụtara (ndị etinyere n'ime ya + omenala) na ọnọdụ ha |
+| `/api/acp/agents` | POST   | Tinye onye ọrụ omenala ma ọ bụ mee ka cache nchọpụta dị ọhụrụ                 |
+| `/api/acp/agents` | DELETE | Wepụ onye ọrụ omenala site na param ajụjụ `id`                                |
 
 Nzaghachi GET gụnyere `agents[]` (id, name, binary, version, installed, protocol, isCustom) na `summary` (total, installed, notFound, builtIn, custom).
 
-### Nkwụsi ike & Oke Ọnụọgụ Arịrịọ
+### Nkwụsi Ike & Oke Ọsọ
 
-| Ebe njedebe                       | Usoro     | Nkọwa                                                                                        |
+| Endpoint                          | Usoro     | Nkọwa                                                                                        |
 | --------------------------------- | --------- | -------------------------------------------------------------------------------------------- |
 | `/api/resilience`                 | GET/PATCH | Nweta/melite ahịrị arịrịọ, oge nkwụsị njikọ, ihe nkwụsị provider, na ntọala nchere           |
 | `/api/resilience/reset`           | POST      | Tọgharịa ihe nkwụsị sekit provider                                                           |
-| `/api/resilience/model-cooldowns` | GET       | Depụta mkpọchi per-(provider, connection, model) ndị na-arụ ọrụ, haziri site n'oge fọdụrụ    |
+| `/api/resilience/model-cooldowns` | GET       | Depụta mkpọchi per-(provider, connection, model) ndị na-arụ ọrụ, ahaziri site n'oge fọdụrụ   |
 | `/api/resilience/model-cooldowns` | DELETE    | Hichapụ mkpọchi model — body `{provider, model}` ma ọ bụ `{all: true}` iji hichapụ ihe niile |
-| `/api/rate-limits`                | GET       | Ọnọdụ oke ọnụọgụ arịrịọ maka akaụntụ ọ bụla                                                  |
-| `/api/rate-limit`                 | GET       | Nhazi oke ọnụọgụ arịrịọ zuru ụwa ọnụ                                                         |
+| `/api/rate-limits`                | GET       | Ọnọdụ oke ọsọ nke akaụntụ ọ bụla                                                             |
+| `/api/rate-limit`                 | GET       | Nhazi oke ọsọ zuru ụwa ọnụ                                                                   |
 
-> Ụzọ `/api/resilience/*` anọ ahụ niile chọrọ **management auth** (`requireManagementAuth`). Lee [Nkwụsi ike (nkọwa sara mbara)](#resilience-extended) maka nkọwa zuru ezu banyere ihe nkwụsị provider, oge nkwụsị njikọ, na mkpọchi model.
+> Ụzọ `/api/resilience/*` anọ ahụ niile chọrọ **nkwenye njikwa** (`requireManagementAuth`). Lee [Nkwụsi Ike (gbasawanyere)](#resilience-extended) maka nkọwa zuru ezu banyere ihe nkwụsị provider megide oge nkwụsị njikọ megide mkpọchi model.
 
-### Nnwale Ntụle
+### Ntụle
 
-| Ebe njedebe  | Usoro    | Nkọwa                              |
+| Endpoint     | Usoro    | Nkọwa                              |
 | ------------ | -------- | ---------------------------------- |
-| `/api/evals` | GET/POST | Depụta nchịkọta nnwale / mee ntụle |
+| `/api/evals` | GET/POST | Depụta nchịkọta ntụle / gbaa ntụle |
 
-### Atumatu
+### Iwu
 
-| Ebe njedebe     | Usoro           | Nkọwa                   |
-| --------------- | --------------- | ----------------------- |
-| `/api/policies` | GET/POST/DELETE | Jikwaa atumatu ntụgharị |
+| Endpoint        | Usoro           | Nkọwa              |
+| --------------- | --------------- | ------------------ |
+| `/api/policies` | GET/POST/DELETE | Jikwaa iwu routing |
 
-### Nrube Isi
+### Nrubeisi
 
-| Ebe njedebe                 | Usoro | Nkọwa                             |
-| --------------------------- | ----- | --------------------------------- |
-| `/api/compliance/audit-log` | GET   | Ndekọ audit nrube isi (N ikpeazụ) |
+| Endpoint                    | Usoro | Nkọwa                            |
+| --------------------------- | ----- | -------------------------------- |
+| `/api/compliance/audit-log` | GET   | Ndekọ audit nrubeisi (N ikpeazụ) |
 
 ### v1beta (Dakọtara na Gemini)
 
-| Ebe njedebe                | Usoro | Nkọwa                                |
-| -------------------------- | ----- | ------------------------------------ |
-| `/v1beta/models`           | GET   | Depụta model n'ụdị Gemini            |
-| `/v1beta/models/{...path}` | POST  | Ebe njedebe Gemini `generateContent` |
+| Endpoint                   | Usoro | Nkọwa                             |
+| -------------------------- | ----- | --------------------------------- |
+| `/v1beta/models`           | GET   | Depụta model n'ụdị Gemini         |
+| `/v1beta/models/{...path}` | POST  | Endpoint Gemini `generateContent` |
 
-Ebe njedebe ndị a na-emegharị usoro API nke Gemini maka client ndị na-atụ anya ndakọrịta Gemini SDK nke mbụ.
+Endpoint ndị a na-eṅomi usoro API Gemini maka client ndị chọrọ ndakọrịta Gemini SDK nke ọdịnala.
 
 ### API Ime / Sistemụ
 
-| Ebe njedebe              | Usoro | Nkọwa                                                      |
-| ------------------------ | ----- | ---------------------------------------------------------- |
-| `/api/init`              | GET   | Nlele mmalite ngwa (a na-eji ya mgbe a na-agba ya nke mbụ) |
-| `/api/tags`              | GET   | Tag model dakọtara na Ollama (maka client Ollama)          |
-| `/api/restart`           | POST  | Malite nrụgharị server nke ọma                             |
-| `/api/shutdown`          | POST  | Malite mmechi server nke ọma                               |
-| `/api/system/env/repair` | POST  | Dozie environment variable nke OAuth provider              |
-| `/api/system/version`    | GET   | Ụdị ugbu a/kacha ọhụrụ, ọnọdụ mmelite, channel mwepụta     |
-| `/api/system/version`    | POST  | Malite mmelite maara ụdị deployment gaa na ụdị kacha ọhụrụ |
+| Endpoint                 | Usoro | Nkọwa                                                         |
+| ------------------------ | ----- | ------------------------------------------------------------- |
+| `/api/init`              | GET   | Nlele mbido ngwa (a na-eji ya mgbe a na-agba ya na mbụ)       |
+| `/api/tags`              | GET   | Tag model dakọtara na Ollama (maka client Ollama)             |
+| `/api/restart`           | POST  | Bido nrụgharị server nke ọma                                  |
+| `/api/shutdown`          | POST  | Bido mmechi server nke ọma                                    |
+| `/api/system/env/repair` | POST  | Dozie environment variable nke OAuth provider                 |
+| `/api/system/version`    | GET   | Version dị ugbu a/kacha ọhụrụ, ọnọdụ mmelite, channel mwepụta |
+| `/api/system/version`    | POST  | Bido mmelite na-amata deployment gaa na version kacha ọhụrụ   |
 
-> **Rịba ama:** Sistemụ na-eji ebe njedebe ndị a n'ime ya ma ọ bụ maka ndakọrịta client Ollama. Ndị ọrụ ikpeazụ anaghị akpọkarị ha.
+> **Rịba ama:** Sistemụ na-eji endpoint ndị a n'ime ya ma ọ bụ maka ndakọrịta client Ollama. Ndị ọrụ ikpeazụ anaghị akpọkarị ha.
 
-### Ndozi Gburugburụ OAuth _(v3.6.1+)_
+### Ndozi Environment OAuth _(v3.6.1+)_
 
 ```bash
 POST /api/system/env/repair
@@ -1198,7 +1202,7 @@ Content-Type: application/json
 }
 ```
 
-Ọ na-edozi environment variable OAuth ndị na-efu efu ma ọ bụ ndị mebiri emebi maka provider akọwapụtara. Ọ na-eweghachi:
+Na-edozi environment variable OAuth furu efu ma ọ bụ mebiri emebi maka otu provider akọwapụtara. Ọ na-eweghachi:
 
 ```json
 {
@@ -1208,15 +1212,15 @@ Content-Type: application/json
 }
 ```
 
-### Ụdị na Channel Mwepụta
+### Version na Channel Mwepụta
 
 ```bash
 GET /api/system/version
 ```
 
-Ụzọ njikwa nke loopback naanị (admin auth). Ọ na-eweghachi ụdị na-arụ ọrụ, ụdị kachasị ọhụrụ
-e bipụtara, na ọnọdụ mmelite akpaka. `releaseChannel` na `channels` bụ field agbakwunyere
-(rail 3.8.54); `channel` na-ejigide ihe ọ pụtara — ụdị deployment nke ihe mmelite dashboard
+Ụzọ njikwa naanị maka loopback (nkwenye admin). Ọ na-eweghachi version na-agba ugbu a, version
+kacha ọhụrụ e bipụtara na ọnọdụ mmelite akpaka. `releaseChannel` na `channels` bụ field agbakwunyere
+(rail 3.8.54); `channel` ka nwere otu ihe ọ pụtara — ụdị deployment nke dashboard updater
 na-eji (`npm`, `source` ma ọ bụ `docker-compose`).
 
 ```json
@@ -1235,14 +1239,14 @@ na-eji (`npm`, `source` ma ọ bụ `docker-compose`).
 
 - `releaseChannel` — ọwa npm nke build na-arụ ọrụ: `nightly` maka ụdị `-nightly.*`,
   `next` maka pre-release ndị ọzọ (`-rc.*`, `-beta.*`, `-alpha.*`), `lts` maka ụdị kwụsiri ike nke
-  major ochie karịa `channels.latest`; ma ọ bụghị ya, `latest`. Ọ na-agbaso otu iwu ndị dị na
+  major ya tọrọ `channels.latest`, ma ọ bụghị ya, `latest`. Ọ na-agbaso otu iwu ndị dị na
   `scripts/release/dist-tag.mjs`, nke na-ahọrọ npm dist-tag n'oge mbipụta.
-- `channels` — head e bipụtara nke dist-tag ọ bụla, sitere na `npm view omniroute dist-tags` (yana
-  registry HTTP fallback), nke echekwara site n'otu TTL nke nkeji 10 dị ka `latest`. `latest` na-adị mgbe niile
-  (ọ bụrụ na ọ dịghị, ọ na-eji field `latest`, ma mesịa `"unavailable"`); `next`, `nightly` na `lts` na-apụta
-  naanị mgbe dist-tag ahụ dị. Arịrịọ `Cache-Control: no-cache` na-eme ka lookup abụọ ahụ nweta data ọhụrụ.
+- `channels` — ụdị kachasị ọhụrụ e bipụtara nke dist-tag ọ bụla, sitere na `npm view omniroute dist-tags` (na-eji
+  registry HTTP dị ka ndabere), ma debe ya na cache site n'otu TTL nke nkeji 10 dịka `latest`. `latest` na-adị mgbe niile
+  (ọ bụrụ na ọ dịghị, ọ na-eji field `latest`, emesịa `"unavailable"`); `next`, `nightly` na `lts` na-apụta
+  naanị mgbe dist-tag ahụ dị. Arịrịọ `Cache-Control: no-cache` na-eme ka lookup abụọ ahụ nweta ozi ọhụrụ.
 
-A kọwara usoro ọwa ahụ (`latest` = v3 ruo mgbe 4.0 GA, `next` = rc, `nightly` = build ndị sitere na `develop`,
+A kọwara usoro ọwa ahụ (`latest` = v3 ruo mgbe 4.0 GA ga-apụta, `next` = rc, `nightly` = build sitere na `develop`,
 `lts` = patch v3 mgbe 4.0 GA gasịrị) na `docs/ops/RELEASE_STRATEGY.md`.
 
 ---

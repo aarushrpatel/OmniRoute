@@ -242,18 +242,25 @@ kuvatakse aktiivne.
 
 ---
 
-## Pääsmike haldamine
+## Tõendite haldamine
 
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
-#   ↳ väljastab saladuse ÜHE KORRA — kopeerige see kohe
-omniroute tokens list                 # maskitud: ID, nimi, ulatus, prefiks, olek, aegumine
+#   ↳ kuvab saladuse ÜHE KORRA — kopeerige see kohe
+omniroute tokens list                 # maskeeritud: ID, nimi, ulatus, prefiks, olek, aegumine
 omniroute tokens revoke <id|prefix>   # tühistab kohe
 omniroute tokens scopes               # selgitab kolme ulatust
 ```
 
-`tokens`-käsud nõuavad **administraatori** identimisteavet. Pääsmikke saab hallata ka
-juhtpaneeli jaotises **Seaded → Juurdepääsupääsmikud** (loomine, tühistamine, ühekordne kopeerimine).
+`tokens`-käsud nõuavad **admin**-tõendit. Tõendeid saab hallata ka
+juhtpaneeli jaotises **Seaded → Juurdepääsutõendid** (loomine, tühistamine, ühekordne kopeerimine).
+
+Tõendit ei saa kunagi väljastada suuremate õigustega, kui selle loojal on. `admin`-tõendi
+saab luua ainult operaator — juhtpaneeli seansi, serveris endas asuva kohaliku
+CLI, parooliga käsu `omniroute connect` või keelatud sisselogimisega eksemplari kaudu.
+Masina autentimistõendid (`admin`-juurdepääsutõend või `manage`/`admin`-ulatusega API-võti)
+saavad väljastada ainult `write`- ja `read`-tõendeid; nende puhul tagastab
+`--scope admin` taotlemine vastuse `403`.
 
 ---
 

@@ -903,52 +903,52 @@ X-OmniRoute-No-Cache: true
 
 ---
 
-## Juhtpaneel ja haldus
+## Töölaud ja haldus
 
 Haldusmarsruute (`/api/*`, välja arvatud avalik autentimine/sisselogimine) **ei** autoriseerita
-tavaliste järeldus-API võtmetega. Identimisteabe tüübid, õiguste ulatused ja curl-i näited:
+tavaliste järeldus-API võtmetega. Mandaadiperekonnad, õigused ja curl-näited:
 [Halduse autentimine](../guides/MANAGEMENT-AUTH.md).
 
 ### Autentimine
 
-| Lõpp-punkt                    | Meetod  | Kirjeldus                             |
-| ----------------------------- | ------- | ------------------------------------- |
-| `/api/auth/login`             | POST    | Sisselogimine                         |
-| `/api/auth/logout`            | POST    | Väljalogimine                         |
-| `/api/settings/require-login` | GET/PUT | Kohustusliku sisselogimise lülitamine |
+| Lõpp-punkt                    | Meetod  | Kirjeldus                    |
+| ----------------------------- | ------- | ---------------------------- |
+| `/api/auth/login`             | POST    | Sisselogimine                |
+| `/api/auth/logout`            | POST    | Väljalogimine                |
+| `/api/settings/require-login` | GET/PUT | Nõutava sisselogimise lüliti |
 
 ### Pakkujate haldus
 
-| Lõpp-punkt                              | Meetod                    | Kirjeldus                                                                                                                                                                    |
-| --------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/providers`                        | GET/POST                  | Pakkujate loetlemine/loomine                                                                                                                                                 |
-| `/api/providers/[id]`                   | GET/PUT/DELETE            | Pakkuja haldamine                                                                                                                                                            |
-| `/api/providers/[id]/test`              | POST                      | Pakkuja ühenduse testimine                                                                                                                                                   |
-| `/api/providers/[id]/models`            | GET                       | Pakkuja mudelite loetlemine                                                                                                                                                  |
-| `/api/providers/validate`               | POST                      | Pakkuja konfiguratsiooni valideerimine                                                                                                                                       |
-| `/api/providers/bulk`                   | POST                      | API-võtmete hulgilisamine ÜHE pakkuja jaoks                                                                                                                                  |
-| `/api/providers/import`                 | POST                      | Heterogeense pakkujate LOENDI importimine parsitud CSV-/JSON-failist (#6836); osaliste tõrgete tulemused ridade kaupa                                                        |
-| `/api/provider-nodes*`                  | Erinevad                  | Pakkuja sõlmede haldus                                                                                                                                                       |
-| `/api/provider-models`                  | GET/POST/PUT/PATCH/DELETE | Kohandatud mudelid ja mudelipõhised alistused (lisamine, värskendamine, peitmine/näitamine, kustutamine)                                                                     |
-| `/api/provider-models/validate-and-add` | POST                      | Halduse autentimist nõudev, valikuline range ühenduse valideerimine ja atomaarne kohandatud mudeli registreerimine; vt [Mudeli valideerimine](../guides/MODEL-VALIDATION.md) |
+| Lõpp-punkt                              | Meetod                    | Kirjeldus                                                                                                                                                                   |
+| --------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/providers`                        | GET/POST                  | Pakkujate loendi kuvamine / pakkuja loomine                                                                                                                                 |
+| `/api/providers/[id]`                   | GET/PUT/DELETE            | Pakkuja haldamine                                                                                                                                                           |
+| `/api/providers/[id]/test`              | POST                      | Pakkuja ühenduse testimine                                                                                                                                                  |
+| `/api/providers/[id]/models`            | GET                       | Pakkuja mudelite loendi kuvamine                                                                                                                                            |
+| `/api/providers/validate`               | POST                      | Pakkuja konfiguratsiooni valideerimine                                                                                                                                      |
+| `/api/providers/bulk`                   | POST                      | API-võtmete hulgilisamine ÜHE pakkuja jaoks                                                                                                                                 |
+| `/api/providers/import`                 | POST                      | Heterogeense pakkujate LOENDI importimine sõelutud CSV-/JSON-failist (#6836); osaliste tõrgete tulemused iga rea kohta                                                      |
+| `/api/provider-nodes*`                  | Erinevad                  | Pakkujasõlmede haldus                                                                                                                                                       |
+| `/api/provider-models`                  | GET/POST/PUT/PATCH/DELETE | Kohandatud mudelid ja mudelipõhised alistused (lisamine, värskendamine, peitmine/kuvamine, kustutamine)                                                                     |
+| `/api/provider-models/validate-and-add` | POST                      | Halduse kaudu autenditud, vabatahtlik range ühenduse valideerimine ja atomaarne kohandatud mudeli registreerimine; vt [Mudeli valideerimine](../guides/MODEL-VALIDATION.md) |
 
-Sünkroonitud/imporditud mudelite puhul aktsepteerib `PUT /api/provider-models` väärtusi `provider`, `modelId` ja
+Sünkroonitud/imporditud mudelite puhul aktsepteerib `PUT /api/provider-models` välju `provider`, `modelId` ja
 `maxOutputTokenOverride`: positiivne täisarv määrab väljundtokenite käsitsi ülempiiri ning `null`
-eemaldab selle vaikeväärtuse taastamiseks. `GET /api/provider-models?provider=<provider>` tagastab need
-väärtused väljal `modelOutputOverrides`, hõlmates ka mudeleid, millel puudub kohandatud mudeli rida. Alistus
+eemaldab selle ja taastab vaikeväärtuse. `GET /api/provider-models?provider=<provider>` tagastab need
+väärtused väljal `modelOutputOverrides`, sealhulgas mudelite puhul, millel puudub kohandatud mudeli rida. Alistus
 kasutab käitusaegset `max_output_tokens` võimekust ja säilib mudeli uuesti sünkroonimisel. OpenAI-ga ühilduva
-pakkuja leht pakub samu muutmis-/eemaldamisjuhtelemente ning märgistab selgelt toetatud masinnägemisega mudelid.
+pakkuja leht pakub samu muutmise/eemaldamise juhtelemente ja tähistab mudelid, millel on sõnaselge nägemistugi.
 
-Kohandatud Chat Completionsi sõlmed kohandavad otseseid arutluskäigust loobumisi ülesvoolu taustsüsteemile. Edukas
+Kohandatud Chat Completionsi sõlmed kohandavad sõnaselged arutluse keelamised ülesvoolu taustsüsteemi jaoks. Edukas
 ühenduse test valib automaatselt vestlusmalli juhtelemendid iga täpse mudeli-ID jaoks,
-mille `/models` kirje tõendab tuvastatud `owned_by` väärtust: `vllm`, `sglang` või `llamacpp`.
+mille `/models` kirje tõendab tunnustatud `owned_by` väärtust: `vllm`, `sglang` või `llamacpp`.
 Läbipaistvad OpenAI-ga ühilduvad ümbrised võivad säilitada algse mudelikirje pesastatud
-`openai` objektis; tuvastamine järgib kuni kolme sellist ümbrist. Puuduva, tundmatu või
-vastuolulise omanditeabega mudelid säilitavad tavapärase OpenAI käitumise. Tuvastamine kasutab olemasolevat kataloogipäringut,
-ei genereeri lõpetamistokeneid ning muutub kehtetuks, kui ühenduse lõpp-punkt muutub.
+`openai` objektis; tuvastamine läbib kuni kolm sellist ümbrist. Puuduva, tundmatu või
+vastuolulise omanikuteabega mudelid säilitavad tavapärase OpenAI käitumise. Tuvastamine kasutab olemasolevat kataloogipäringut,
+ei genereeri lõpetamistokeneid ja muudetakse kehtetuks, kui ühenduse lõpp-punkt muutub.
 
-Et kinnistada käitumine taustsüsteemi jaoks, mis neid metaandmeid ei avalda, kasutage olemasolevat osalise
-pakkuja värskendamise API-t:
+Kui taustsüsteem neid metaandmeid ei avalda, kasutage käitumise fikseerimiseks olemasolevat osalise
+pakkujavärskenduse API-t:
 
 ```json
 {
@@ -958,22 +958,22 @@ pakkuja värskendamise API-t:
 }
 ```
 
-Saatke see keha päringuga `PUT /api/providers/<connection-id>`. Selle ühenduse puhul saadetakse otsene
-arutluspingutuse väärtus `none` kujul `chat_template_kwargs.thinking=false` ja
-`chat_template_kwargs.enable_thinking=false`. Otseselt määratud loomuliku malli väärtused jäävad määravaks,
-välja arvatud juhul, kui serveripoolne arutlusreegel sunnib kasutama kindlat pingutustaset. Säte rakendub ainult siis, kui kohandatud
+Saatke see keha päringuga `PUT /api/providers/<connection-id>`. Selle ühenduse puhul saadetakse sõnaselge
+arutluse pingutuse väärtus `none` kujul `chat_template_kwargs.thinking=false` ja
+`chat_template_kwargs.enable_thinking=false`. Sõnaselged loomulikud malliväärtused jäävad määravaks,
+välja arvatud juhul, kui serveripoolne arutlusreegel sunnib kasutama kindlat pingutust. Seadistus rakendub ainult siis, kui kohandatud
 OpenAI-ga ühilduv ühendus edastab Chat Completionsi keha; Responsesi päringud ja tavalised
-pakkujad säilitavad oma loomuliku päringukuju. Määrake `reasoningControl` väärtuseks `openai`, et sundida tavapärast OpenAI
-`reasoning_effort` läbiedastust, või jätke see välja / määrake väärtuseks `null`, et kasutada automaatset tuvastamist.
+pakkujad säilitavad oma loomuliku päringukuju. Tavapärase OpenAI `reasoning_effort` väärtuse
+muutmata edastamise jõustamiseks määrake `reasoningControl` väärtuseks `openai`; automaatse tuvastamise kasutamiseks jätke see välja või määrake väärtuseks `null`.
 
-Claude Code'i automaatrežiimi klassifikaatori päringutes lülitatakse vaikimisi natiivne mõtlemine välja, kui need ei sisalda
-selgesõnalisi arutluse juhtseadeid. Tuvastamine kasutab Claude'i vormingus päringutes klassifikaatori süsteemimarkerit,
-mitte mudelinimesid ega lõpetamislimiite. Päringu keha selgesõnalised juhtseaded, toetatud pingutuse/mõtlemise
+Claude Code’i automaatrežiimi klassifikaatori päringutes on vaikimisi natiivne mõtlemine keelatud, kui need ei sisalda
+selgesõnalisi arutluskäigu juhtelemente. Tuvastamisel kasutatakse Claude’i vormingus päringutes olevat klassifikaatori süsteemimarkerit,
+mitte mudelinimesid ega vastuse pikkuse piiranguid. Päringu keha selgesõnalised juhtelemendid, toetatud pingutuse/mõtlemise
 päised, marsruutimisreeglid ja lahendatud mudeli pingutustase säilitavad oma senise prioriteedi. Klassifikaatori
-mõlemad etapid säilitavad oma viibad, lõpetamislimiidid, peatamisjadad ja tegelikud ülesvoolu õiguste
-otsused; teine etapp võib siiski esitada nõutud nähtava arutluse tavatekstina.
+mõlemas etapis säilivad nende viibad, vastuse pikkuse piirangud, stoppjärjendid ja tegelikud ülesvoolu loaotsused;
+teine etapp saab endiselt esitada nõutud nähtava arutluskäigu tavatekstina.
 
-### OAuth-vood
+### OAuthi vood
 
 | Lõpp-punkt                       | Meetod   | Kirjeldus           |
 | -------------------------------- | -------- | ------------------- |
@@ -981,108 +981,108 @@ otsused; teine etapp võib siiski esitada nõutud nähtava arutluse tavatekstina
 
 ### Marsruutimine ja konfiguratsioon
 
-| Lõpp-punkt            | Meetod   | Kirjeldus                          |
-| --------------------- | -------- | ---------------------------------- |
-| `/api/models/alias`   | GET/POST | Mudelite aliased                   |
-| `/api/models/catalog` | GET      | Kõik mudelid pakkuja + tüübi järgi |
-| `/api/combos*`        | Erinevad | Kombinatsioonide haldus            |
-| `/api/keys*`          | Erinevad | API-võtmete haldus                 |
-| `/api/pricing`        | GET      | Mudelite hinnakujundus             |
+| Lõpp-punkt            | Meetod   | Kirjeldus                           |
+| --------------------- | -------- | ----------------------------------- |
+| `/api/models/alias`   | GET/POST | Mudelite aliased                    |
+| `/api/models/catalog` | GET      | Kõik mudelid pakkuja ja tüübi järgi |
+| `/api/combos*`        | Erinevad | Kombinatsioonide haldus             |
+| `/api/keys*`          | Erinevad | API-võtmete haldus                  |
+| `/api/pricing`        | GET      | Mudelite hinnakujundus              |
 
 ### Kasutus ja analüütika
 
-| Lõpp-punkt                       | Meetod          | Kirjeldus                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/usage/history`             | GET             | Kasutusajalugu                                                                                                                                                                                                                                                                                                               |
-| `/api/usage/logs`                | GET             | Kasutuslogid                                                                                                                                                                                                                                                                                                                 |
-| `/api/usage/request-logs`        | GET             | Päringutaseme logid                                                                                                                                                                                                                                                                                                          |
-| `/api/usage/[connectionId]`      | GET             | Ühendusepõhine kasutus                                                                                                                                                                                                                                                                                                       |
-| `/api/usage/token-limits`        | GET/POST/DELETE | API-võtmepõhised tokenilimiidi eelarved                                                                                                                                                                                                                                                                                      |
-| `/api/usage/model-latency-stats` | GET             | Pakkuja/mudeli libiseva akna latentsuse koondnäitajad (keskmine/p50/p95/p99, õnnestumismäär); filtrid: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                                                                       |
-| `/api/usage/cache-health`        | GET             | Viipade vahemälu seisundi kokkuvõte üle `call_logs` — kirjutamis-/lugemissuhe, kirjutusmahu jaotus p50/p90/p99, mahukate kirjutuste koondumine, mudelipõhine jaotus ja hinnang `healthy`/`degraded`/`thrash`/`no-data`; päringuparameetrid `range` (`1h`\|`24h`\|`7d`\|`30d`, vaikimisi `24h`) ja valikuline `model` (#8827) |
+| Lõpp-punkt                       | Meetod          | Kirjeldus                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/usage/history`             | GET             | Kasutusajalugu                                                                                                                                                                                                                                                                                                                              |
+| `/api/usage/logs`                | GET             | Kasutuslogid                                                                                                                                                                                                                                                                                                                                |
+| `/api/usage/request-logs`        | GET             | Päringutaseme logid                                                                                                                                                                                                                                                                                                                         |
+| `/api/usage/[connectionId]`      | GET             | Ühendusepõhine kasutus                                                                                                                                                                                                                                                                                                                      |
+| `/api/usage/token-limits`        | GET/POST/DELETE | API-võtmepõhised tokenilimiitide eelarved                                                                                                                                                                                                                                                                                                   |
+| `/api/usage/model-latency-stats` | GET             | Jooksev pakkuja-/mudelipõhine latentsuse koondnäitaja (keskmine/p50/p95/p99, õnnestumismäär); filtrid: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                                                                                      |
+| `/api/usage/cache-health`        | GET             | Viibavahemälu seisundi kokkuvõte tabeli `call_logs` põhjal — kirjutamise/lugemise suhe, kirjutusmahu p50/p90/p99 jaotus, mahukate kirjutuste kontsentratsioon, mudelipõhine jaotus ning otsus `healthy`/`degraded`/`thrash`/`no-data`; päringuparameetrid `range` (`1h`\|`24h`\|`7d`\|`30d`, vaikimisi `24h`) ja valikuline `model` (#8827) |
 
 ### API-võtme õigused
 
-`PATCH /api/keys/{id}` värskendab olemasoleva võtme õigusi. Nagu iga `/api/keys*` marsruut, nõuab see halduse autoriseerimist (vt [Halduse autentimine](../guides/MANAGEMENT-AUTH.md)), mitte järeldusvõtit. Saatke ainult väljad, mida soovite muuta; päring, mis ei sisalda neist ühtegi, lükatakse tagasi teatega `No valid fields to update`. Aktsepteeritavad väljad määratleb `updateKeyPermissionsSchema` failis `src/shared/validation/schemas/keys.ts`.
+`PATCH /api/keys/{id}` värskendab olemasoleva võtme õigusi. Nagu kõik `/api/keys*` marsruudid, nõuab ka see haldusautoriseerimist (vt [Halduse autentimine](../guides/MANAGEMENT-AUTH.md)), mitte järelduspäringu võtit. Saatke ainult väljad, mida soovite muuta; päring, milles pole ühtegi neist, lükatakse tagasi teatega `No valid fields to update`. Aktsepteeritavad väljad määratleb `updateKeyPermissionsSchema` failis `src/shared/validation/schemas/keys.ts`.
 
-| Väli                                        | Tüüp                                                                          | Märkused                                                                                                                                                |
-| ------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                      | string, 1–200 märki                                                           |                                                                                                                                                         |
-| `isActive`                                  | boolean                                                                       |                                                                                                                                                         |
-| `isBanned`                                  | boolean                                                                       |                                                                                                                                                         |
-| `expiresAt`                                 | ISO 8601 kuupäev ja kellaaeg või `null`                                       | `null` eemaldab aegumise                                                                                                                                |
-| `modelAccessMode`                           | `all` \| `restricted`                                                         | `allowedModels` peab olema tühi, kui režiim on `all`                                                                                                    |
-| `allowedModels`, `blockedModels`            | stringide massiiv, kuni 1000                                                  |                                                                                                                                                         |
-| `allowedCombos`                             | stringide massiiv, kuni 500                                                   | Piirab, milliseid kombinatsioone võib võti kutsuda; otsemudeleid juhivad `modelAccessMode` / `allowedModels`                                            |
-| `connectionAccessMode`                      | `all` \| `restricted`                                                         | `allowedConnections` ei tohi olla tühi režiimi `restricted` korral ning peab olema tühi režiimi `all` korral                                            |
-| `allowedConnections`                        | UUID-de massiiv, kuni 100                                                     |                                                                                                                                                         |
-| `allowAutoCombos`                           | boolean                                                                       | `false` lükkab tagasi selle võtmega tehtud päringud mudelitele `auto/*`; võtmed, millel seda pole kunagi määratud, on lubatud                           |
-| `catalogScope`                              | `all` \| `combos` \| `models`                                                 | Määrab, mida `GET /v1/models` selle võtme puhul loetleb (ainult kombinatsioonid, ainult mudelid või mõlemad); see ei muuda seda, mida võti võib kutsuda |
-| `noLog`, `autoResolve`                      | boolean                                                                       |                                                                                                                                                         |
-| `throttleDelayMs`                           | täisarv, 0–300000                                                             |                                                                                                                                                         |
-| `maxSessions`                               | täisarv, 0–10000                                                              |                                                                                                                                                         |
-| `rateLimits`                                | massiiv kujul `{ limit, window }` (positiivsed täisarvud, kuni 50) või `null` | `null` eemaldab piirangud                                                                                                                               |
-| `accessSchedule`                            | ajakavaobjekt või `null`                                                      | `null` eemaldab ajakava                                                                                                                                 |
-| `scopes`                                    | stringide massiiv, kuni 32                                                    |                                                                                                                                                         |
-| `allowedEndpoints`                          | stringide massiiv, kuni 20                                                    |                                                                                                                                                         |
-| `streamDefaultMode`                         | `legacy` \| `json`                                                            |                                                                                                                                                         |
-| `cacheDefaultMode`                          | `legacy` \| `bypass`                                                          | Vt [Võtmepõhine vahemälust möödumine](#per-key-cache-bypass)                                                                                            |
-| `compressionEnabled`                        | boolean                                                                       |                                                                                                                                                         |
-| `codexServiceMode`                          | üks Codexi teenuserežiimidest                                                 |                                                                                                                                                         |
-| `disableNonPublicModels`                    | boolean                                                                       |                                                                                                                                                         |
-| `allowUsageCommand`                         | boolean                                                                       |                                                                                                                                                         |
-| `usageLimitEnabled`                         | boolean                                                                       |                                                                                                                                                         |
-| `dailyUsageLimitUsd`, `weeklyUsageLimitUsd` | number >= 0 või `null`                                                        |                                                                                                                                                         |
-| `chaosModeEnabled`                          | boolean                                                                       |                                                                                                                                                         |
+| Väli                                        | Tüüp                                                                          | Märkused                                                                                                                                   |
+| ------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`                                      | sõne, 1–200 märki                                                             |                                                                                                                                            |
+| `isActive`                                  | tõeväärtus                                                                    |                                                                                                                                            |
+| `isBanned`                                  | tõeväärtus                                                                    |                                                                                                                                            |
+| `expiresAt`                                 | ISO 8601 kuupäev ja kellaaeg või `null`                                       | `null` eemaldab aegumisaja                                                                                                                 |
+| `modelAccessMode`                           | `all` \| `restricted`                                                         | Kui režiim on `all`, peab `allowedModels` olema tühi                                                                                       |
+| `allowedModels`, `blockedModels`            | sõnede massiiv, kuni 1000 elementi                                            |                                                                                                                                            |
+| `allowedCombos`                             | sõnede massiiv, kuni 500 elementi                                             | Määrab, milliseid kombinatsioone võti võib kutsuda; otsemudeleid juhivad `modelAccessMode` / `allowedModels`                               |
+| `connectionAccessMode`                      | `all` \| `restricted`                                                         | `allowedConnections` ei tohi olla tühi režiimi `restricted` korral ja peab olema tühi režiimi `all` korral                                 |
+| `allowedConnections`                        | UUID-de massiiv, kuni 100 elementi                                            |                                                                                                                                            |
+| `allowAutoCombos`                           | tõeväärtus                                                                    | `false` lükkab selle võtmega mudelite `auto/*` päringud tagasi; võtmed, millel pole seda kunagi määratud, on lubatud                       |
+| `catalogScope`                              | `all` \| `combos` \| `models`                                                 | Mida `GET /v1/models` selle võtme puhul loetleb (ainult kombinatsioonid, ainult mudelid või mõlemad); see ei muuda, mida võti võib kutsuda |
+| `noLog`, `autoResolve`                      | tõeväärtus                                                                    |                                                                                                                                            |
+| `throttleDelayMs`                           | täisarv, 0–300000                                                             |                                                                                                                                            |
+| `maxSessions`                               | täisarv, 0–10000                                                              |                                                                                                                                            |
+| `rateLimits`                                | massiiv kujul `{ limit, window }` (positiivsed täisarvud, kuni 50) või `null` | `null` eemaldab piirangud                                                                                                                  |
+| `accessSchedule`                            | ajakava objekt või `null`                                                     | `null` eemaldab ajakava                                                                                                                    |
+| `scopes`                                    | sõnede massiiv, kuni 32 elementi                                              |                                                                                                                                            |
+| `allowedEndpoints`                          | sõnede massiiv, kuni 20 elementi                                              |                                                                                                                                            |
+| `streamDefaultMode`                         | `legacy` \| `json`                                                            |                                                                                                                                            |
+| `cacheDefaultMode`                          | `legacy` \| `bypass`                                                          | Vt [Võtmepõhine vahemälust möödumine](#per-key-cache-bypass)                                                                               |
+| `compressionEnabled`                        | tõeväärtus                                                                    |                                                                                                                                            |
+| `codexServiceMode`                          | üks Codexi teenuserežiimidest                                                 |                                                                                                                                            |
+| `disableNonPublicModels`                    | tõeväärtus                                                                    |                                                                                                                                            |
+| `allowUsageCommand`                         | boolean                                                                       |                                                                                                                                            |
+| `usageLimitEnabled`                         | boolean                                                                       |                                                                                                                                            |
+| `dailyUsageLimitUsd`, `weeklyUsageLimitUsd` | number >= 0 või `null`                                                        |                                                                                                                                            |
+| `chaosModeEnabled`                          | boolean                                                                       |                                                                                                                                            |
 
 ```bash
 curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
-  -H "Authorization: Bearer <management-credential>" \
+  -H "Authorization: Bearer <halduspääsetunnus>" \
   -H "Content-Type: application/json" \
   -d '{ "allowAutoCombos": false, "catalogScope": "combos" }'
 ```
 
 ### Seaded
 
-| Lõpp-punkt                            | Meetod        | Kirjeldus                                                                                                                                                                                                     |
-| ------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/settings`                       | GET/PUT/PATCH | Üldseaded                                                                                                                                                                                                     |
-| `/api/settings/proxy`                 | GET/PUT       | Võrgupuhverserveri konfiguratsioon                                                                                                                                                                            |
-| `/api/settings/proxy/test`            | POST          | Puhverserveri ühenduse testimine                                                                                                                                                                              |
-| `/api/settings/ip-filter`             | GET/PUT       | IP-aadresside lubamis- ja blokeerimisloend                                                                                                                                                                    |
-| `/api/settings/thinking-budget`       | GET/PUT       | Mõtlemise/arutluse **päringu** ümberkirjutamise režiim (muutmata edastus / automaatne eemaldamine / kohandatud / adaptiivne). Tihendamisest sõltumatu. Vt [THINKING_BUDGET.md](../guides/THINKING_BUDGET.md). |
-| `/api/settings/system-prompt`         | GET/PUT       | Globaalne süsteemiviip                                                                                                                                                                                        |
-| `/api/settings/compression`           | GET/PUT       | Globaalne tihendamise konfiguratsioon                                                                                                                                                                         |
-| `/api/settings/purge-request-history` | POST          | Päringulogi ridade ja kohalike kõnelogi artefaktide kustutamine                                                                                                                                               |
+| Lõpp-punkt                            | Meetod        | Kirjeldus                                                                                                                                                                                                        |
+| ------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/settings`                       | GET/PUT/PATCH | Üldseaded                                                                                                                                                                                                        |
+| `/api/settings/proxy`                 | GET/PUT       | Võrgupuhverserveri konfiguratsioon                                                                                                                                                                               |
+| `/api/settings/proxy/test`            | POST          | Puhverserveriühenduse testimine                                                                                                                                                                                  |
+| `/api/settings/ip-filter`             | GET/PUT       | IP-aadresside lubatud/blokeeritud loend                                                                                                                                                                          |
+| `/api/settings/thinking-budget`       | GET/PUT       | Mõtlemise/arutluse **päringu** ümberkirjutamise režiim (muutmata edastamine / automaatne eemaldamine / kohandatud / adaptiivne). Tihendamisest sõltumatu. Vt [THINKING_BUDGET.md](../guides/THINKING_BUDGET.md). |
+| `/api/settings/system-prompt`         | GET/PUT       | Globaalne süsteemiviip                                                                                                                                                                                           |
+| `/api/settings/compression`           | GET/PUT       | Globaalne tihenduskonfiguratsioon                                                                                                                                                                                |
+| `/api/settings/purge-request-history` | POST          | Päringulogi ridade ja kohalike kõnelogi artefaktide kustutamine                                                                                                                                                  |
 
 ### Kontekst ja tihendamine
 
 | Lõpp-punkt                             | Meetod         | Kirjeldus                                                                            |
 | -------------------------------------- | -------------- | ------------------------------------------------------------------------------------ |
-| `/api/compression/preview`             | POST           | off/lite/standard/aggressive/ultra/RTK/stacked-tihendamise eelvaade                  |
+| `/api/compression/preview`             | POST           | Väljas-/kerge-/standard-/agressiivse-/ultra-/RTK-/virnastatud tihendamise eelvaade   |
 | `/api/compression/language-packs`      | GET            | Saadaolevate Cavemani keelepakettide loend                                           |
 | `/api/compression/rules`               | GET            | Cavemani reeglite metaandmete loend                                                  |
-| `/api/context/caveman/config`          | GET/PUT        | Cavemani-spetsiifiliste seadete alias                                                |
-| `/api/context/rtk/config`              | GET/PUT        | RTK-spetsiifilised seaded, sealhulgas kohandatud filtrid ja toorväljundi säilitamine |
+| `/api/context/caveman/config`          | GET/PUT        | Cavemani-põhiste seadete alias                                                       |
+| `/api/context/rtk/config`              | GET/PUT        | RTK-põhised seaded, sealhulgas kohandatud filtrid ja töötlemata väljundi säilitamine |
 | `/api/context/rtk/filters`             | GET            | RTK filtrikataloog ja kohandatud filtrite diagnostika                                |
-| `/api/context/rtk/test`                | POST           | RTK eelvaate/testi käitamine tekstilise lasti suhtes                                 |
-| `/api/context/rtk/raw-output/[id]`     | GET            | Säilitatud redigeeritud toorväljundi lugemine viida ID järgi                         |
-| `/api/context/combos`                  | GET/POST       | Tihendamiskombinatsioonide loend/loomine                                             |
-| `/api/context/combos/[id]`             | GET/PUT/DELETE | Tihendamiskombinatsiooni üksikasjad/uuendamine/kustutamine                           |
-| `/api/context/combos/[id]/assignments` | GET/PUT        | Tihendamiskombinatsioonide määramine marsruutimiskombinatsioonidele                  |
-| `/api/context/analytics`               | GET            | Tihendamisanalüütika alias                                                           |
+| `/api/context/rtk/test`                | POST           | RTK eelvaate/testi käitamine tekstlastiga                                            |
+| `/api/context/rtk/raw-output/[id]`     | GET            | Säilitatud redigeeritud töötlemata väljundi lugemine viida ID järgi                  |
+| `/api/context/combos`                  | GET/POST       | Tihenduskombinatsioonide loendi hankimine / kombinatsiooni loomine                   |
+| `/api/context/combos/[id]`             | GET/PUT/DELETE | Tihenduskombinatsiooni üksikasjade hankimine / uuendamine / kustutamine              |
+| `/api/context/combos/[id]/assignments` | GET/PUT        | Tihenduskombinatsioonide määramine marsruutimiskombinatsioonidele                    |
+| `/api/context/analytics`               | GET            | Tihendusanalüütika alias                                                             |
 
 ### Seire
 
-| Lõpp-punkt                           | Meetod     | Kirjeldus                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`                      | GET        | Aktiivsete seansside jälgimine                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `/api/rate-limits`                   | GET        | Kontopõhised kiirusepiirangud                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `/api/monitoring/health`             | GET        | Tervisekontroll + teenusepakkujate kokkuvõte (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`). Haldusvaade sisaldab välja `credentialHealth`: kontrollpäringute vahemälu skalaarväärtused, `failedConnections`, kui `failed>0`, ja `staleDbNonOkCount` (SQLite'i püsiv `test_status`, mitte mõõdik). Vt [MONITORING_GUIDE.md](../ops/MONITORING_GUIDE.md#credentialhealth-probe-cache-vs-sqlite-test_status). |
-| `/api/cache/stats`                   | GET/DELETE | Vahemälu statistika / tühjendamine                                                                                                                                                                                                                                                                                                                                                                                                |
-| `/api/modality-bridge/stats`         | GET        | Mälus hoitavad `attempts`, õnnestumised/`bridged`, nurjumised, vahemälutabamused, `totalLatencyMs`, `latencySamples`, valimite arvul põhinev `averageLatencyMs` ja viimase kasutuse aeg (lähtestatakse taaskäivitamisel; haldusautentimine)                                                                                                                                                                                       |
-| `/api/modality-bridge/video/runtime` | GET        | Range usaldatud tagasisidestusaadressi kontroll enne haldusautentimist/kontrollpäringut; puhastatud FFmpeg-i/ffprobe'i saadavus ja versioonid (ei salvestata vahemällu)                                                                                                                                                                                                                                                           |
-| `/api/modality-bridge/video/extract` | POST       | Sisemine autenditud usaldatud tagasisidestusaadressi baidivahendaja; 50 MiB sisend, piiratud järjekord / 32 MiB väljund, `503` läbilaskevõime puudumine, `499` ühenduse katkemine, `504` tähtaja ületamine; ei ole avalik üleslaadimise API                                                                                                                                                                                       |
+| Lõpp-punkt                           | Meetod     | Kirjeldus                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Aktiivsete seansside jälgimine                                                                                                                                                                                                                                                                                                                                                                                               |
+| `/api/rate-limits`                   | GET        | Kontopõhised päringusageduse piirangud                                                                                                                                                                                                                                                                                                                                                                                       |
+| `/api/monitoring/health`             | GET        | Seisundikontroll + teenusepakkujate kokkuvõte (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`). Haldusvaade sisaldab välja `credentialHealth`: kontrollipuhvri skalaarväärtused, `failedConnections`, kui `failed>0`, ja `staleDbNonOkCount` (SQLite'i püsiv `test_status`, mitte mõõdik). Vaadake [MONITORING_GUIDE.md](../ops/MONITORING_GUIDE.md#credentialhealth-probe-cache-vs-sqlite-test_status). |
+| `/api/cache/stats`                   | GET/DELETE | Puhvri statistika / tühjendamine                                                                                                                                                                                                                                                                                                                                                                                             |
+| `/api/modality-bridge/stats`         | GET        | Mälus hoitavad `attempts`, õnnestumised/`bridged`, ebaõnnestumised, puhvritabamused, `totalLatencyMs`, `latencySamples`, valimipõhine `averageLatencyMs` ja viimase kasutuse aeg (lähtestatakse taaskäivitamisel; nõuab halduse autentimist)                                                                                                                                                                                 |
+| `/api/modality-bridge/video/runtime` | GET        | Range usaldatud tagasisideahela kontroll enne halduse autentimist/kontrolli; puhastatud FFmpegi/ffprobe'i saadavus ja versioonid (ei salvestata puhvrisse)                                                                                                                                                                                                                                                                   |
+| `/api/modality-bridge/video/extract` | POST       | Sisemine autenditud usaldatud tagasisideahela baidivahendaja; 50 MiB sisend, piiratud järjekord / 32 MiB väljund, `503` mahu täitumisel, `499` ühenduse katkemisel, `504` tähtaja ületamisel; ei ole avalik üleslaadimise API                                                                                                                                                                                                |
 
 ### Varundamine ja eksport/import
 
@@ -1095,21 +1095,25 @@ curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
 | `/api/db-backups/import`    | POST   | .sqlite-faili üleslaadimine andmebaasi asendamiseks |
 | `/api/db-backups/exportAll` | GET    | Täieliku varukoopia allalaadimine .tar.gz-arhiivina |
 
+`/api/db-backups/export`, `/api/db-backups/exportAll` ja `/api/settings/export-json` väljastavad
+kõik salvestatud identimisteabed, mistõttu nõuavad need juhtpaneeli seanssi või kohalikku CLI-d (või
+keelatud sisselogimist). Mis tahes ulatusega API-võtmed ja `oma_` juurdepääsuload saavad vastuseks `403`.
+
 ### Pilvesünkroonimine
 
-| Lõpp-punkt             | Meetod   | Kirjeldus                  |
-| ---------------------- | -------- | -------------------------- |
-| `/api/sync/cloud`      | Erinevad | Pilvesünkroonimistoimingud |
-| `/api/sync/initialize` | POST     | Sünkroonimise lähtestamine |
-| `/api/cloud/*`         | Erinevad | Pilvehaldus                |
+| Lõpp-punkt             | Meetod       | Kirjeldus                    |
+| ---------------------- | ------------ | ---------------------------- |
+| `/api/sync/cloud`      | Mitmesugused | Pilvesünkroonimise toimingud |
+| `/api/sync/initialize` | POST         | Sünkroonimise lähtestamine   |
+| `/api/cloud/*`         | Mitmesugused | Pilvehaldus                  |
 
 ### Tunnelid
 
 | Lõpp-punkt                 | Meetod | Kirjeldus                                                                 |
 | -------------------------- | ------ | ------------------------------------------------------------------------- |
-| `/api/tunnels/cloudflared` | GET    | Cloudflare Quick Tunneli paigaldus- ja käitusoleku lugemine töölaua jaoks |
+| `/api/tunnels/cloudflared` | GET    | Cloudflare Quick Tunneli paigalduse/tööoleku lugemine juhtpaneeli jaoks   |
 | `/api/tunnels/cloudflared` | POST   | Cloudflare Quick Tunneli lubamine või keelamine (`action=enable/disable`) |
-| `/api/tunnels/ngrok`       | GET    | ngrok Tunneli käitusoleku lugemine töölaua jaoks                          |
+| `/api/tunnels/ngrok`       | GET    | ngrok Tunneli tööoleku lugemine juhtpaneeli jaoks                         |
 | `/api/tunnels/ngrok`       | POST   | ngrok Tunneli lubamine või keelamine (`action=enable/disable`)            |
 
 ### CLI-tööriistad
@@ -1122,7 +1126,7 @@ curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
 | `/api/cli-tools/openclaw-settings` | GET    | OpenClaw CLI olek         |
 | `/api/cli-tools/runtime/[toolId]`  | GET    | Üldine CLI käituskeskkond |
 
-CLI vastused sisaldavad: `installed`, `runnable`, `command`, `commandPath`, `runtimeMode`, `reason`.
+CLI vastused sisaldavad välju: `installed`, `runnable`, `command`, `commandPath`, `runtimeMode`, `reason`.
 
 ### ACP agendid
 
@@ -1132,7 +1136,7 @@ CLI vastused sisaldavad: `installed`, `runnable`, `command`, `commandPath`, `run
 | `/api/acp/agents` | POST   | Kohandatud agendi lisamine või tuvastusvahemälu värskendamine             |
 | `/api/acp/agents` | DELETE | Kohandatud agendi eemaldamine päringuparameetri `id` alusel               |
 
-GET-vastus sisaldab `agents[]` (id, name, binary, version, installed, protocol, isCustom) ja `summary` (total, installed, notFound, builtIn, custom).
+GET-vastus sisaldab välju `agents[]` (id, name, binary, version, installed, protocol, isCustom) ja `summary` (total, installed, notFound, builtIn, custom).
 
 ### Tõrkekindlus ja kiiruspiirangud
 
@@ -1140,24 +1144,24 @@ GET-vastus sisaldab `agents[]` (id, name, binary, version, installed, protocol, 
 | --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
 | `/api/resilience`                 | GET/PATCH | Päringujärjekorra, ühenduse ooteaja, teenusepakkuja kaitselüliti ja ootesätete hankimine/värskendamine  |
 | `/api/resilience/reset`           | POST      | Teenusepakkuja kaitselülitite lähtestamine                                                              |
-| `/api/resilience/model-cooldowns` | GET       | Aktiivsete teenusepakkuja, ühenduse ja mudeli põhiste lukustuste loend, sorditud järelejäänud aja järgi |
-| `/api/resilience/model-cooldowns` | DELETE    | Mudeli lukustuse eemaldamine — keha `{provider, model}` või kõige kustutamiseks `{all: true}`           |
+| `/api/resilience/model-cooldowns` | GET       | Aktiivsete (teenusepakkuja, ühenduse, mudeli) põhiste lukustuste loend järelejäänud aja järgi sordituna |
+| `/api/resilience/model-cooldowns` | DELETE    | Mudeli lukustuse eemaldamine — keha `{provider, model}` või kõige eemaldamiseks `{all: true}`           |
 | `/api/rate-limits`                | GET       | Kontopõhine kiiruspiirangu olek                                                                         |
 | `/api/rate-limit`                 | GET       | Globaalne kiiruspiirangu konfiguratsioon                                                                |
 
-> Kõik neli `/api/resilience/*` marsruuti nõuavad **halduse autentimist** (`requireManagementAuth`). Teenusepakkuja kaitselüliti, ühenduse ooteaja ja mudeli lukustuse täielikku võrdlust vaadake jaotisest [Tõrkekindlus (laiendatud)](#resilience-extended).
+> Kõik neli `/api/resilience/*` marsruuti nõuavad **halduri autentimist** (`requireManagementAuth`). Teenusepakkuja kaitselüliti, ühenduse ooteaja ja mudeli lukustuse täielikku võrdlust vaadake jaotisest [Tõrkekindlus (laiendatud)](#resilience-extended).
 
 ### Hindamised
 
-| Lõpp-punkt   | Meetod   | Kirjeldus                                         |
-| ------------ | -------- | ------------------------------------------------- |
-| `/api/evals` | GET/POST | Hindamiskomplektide loend / hindamise käivitamine |
+| Lõpp-punkt   | Meetod   | Kirjeldus                             |
+| ------------ | -------- | ------------------------------------- |
+| `/api/evals` | GET/POST | Hindamiskomplektide loend / hindamine |
 
-### Reeglistikud
+### Reeglid
 
-| Lõpp-punkt      | Meetod          | Kirjeldus                      |
-| --------------- | --------------- | ------------------------------ |
-| `/api/policies` | GET/POST/DELETE | Marsruutimisreeglite haldamine |
+| Lõpp-punkt      | Meetod          | Kirjeldus                   |
+| --------------- | --------------- | --------------------------- |
+| `/api/policies` | GET/POST/DELETE | Marsruutimisreeglite haldus |
 
 ### Vastavus
 
@@ -1172,23 +1176,23 @@ GET-vastus sisaldab `agents[]` (id, name, binary, version, installed, protocol, 
 | `/v1beta/models`           | GET    | Mudelite loend Gemini vormingus     |
 | `/v1beta/models/{...path}` | POST   | Gemini `generateContent` lõpp-punkt |
 
-Need lõpp-punktid jäljendavad Gemini API vormingut klientide jaoks, mis eeldavad ühilduvust Gemini omakeelse SDK-ga.
+Need lõpp-punktid jäljendavad Gemini API vormingut klientide jaoks, mis eeldavad ühilduvust Gemini omarakendusliku SDK-ga.
 
 ### Sisemised / süsteemi API-d
 
 | Lõpp-punkt               | Meetod | Kirjeldus                                                         |
 | ------------------------ | ------ | ----------------------------------------------------------------- |
 | `/api/init`              | GET    | Rakenduse lähtestamise kontroll (kasutatakse esmakäivitusel)      |
-| `/api/tags`              | GET    | Ollamaga ühilduvad mudelisildid (Ollama klientidele)              |
-| `/api/restart`           | POST   | Serveri sujuva taaskäivitamise käivitamine                        |
+| `/api/tags`              | GET    | Ollama-ühilduvad mudelisildid (Ollama klientidele)                |
+| `/api/restart`           | POST   | Serveri sujuva taaskäivituse käivitamine                          |
 | `/api/shutdown`          | POST   | Serveri sujuva seiskamise käivitamine                             |
-| `/api/system/env/repair` | POST   | OAuthi teenusepakkuja keskkonnamuutujate parandamine              |
+| `/api/system/env/repair` | POST   | OAuth-teenusepakkuja keskkonnamuutujate parandamine               |
 | `/api/system/version`    | GET    | Praegune/uusim versioon, värskenduse olek, väljalaskekanal        |
-| `/api/system/version`    | POST   | Juurutust arvestava uusimale versioonile värskendamise alustamine |
+| `/api/system/version`    | POST   | Juurutust arvestava värskendamise alustamine uusimale versioonile |
 
-> **Märkus:** Süsteem kasutab neid lõpp-punkte sisemiselt või Ollama kliendiühilduvuse tagamiseks. Lõppkasutajad neid tavaliselt ei kutsu.
+> **Märkus:** Süsteem kasutab neid lõpp-punkte sisemiselt või Ollama klientidega ühilduvuse tagamiseks. Lõppkasutajad neid tavaliselt ei kutsu.
 
-### OAuthi keskkonna parandamine _(v3.6.1+)_
+### OAuth-keskkonna parandamine _(v3.6.1+)_
 
 ```bash
 POST /api/system/env/repair
@@ -1199,7 +1203,7 @@ Content-Type: application/json
 }
 ```
 
-Parandab konkreetse teenusepakkuja puuduvad või rikutud OAuthi keskkonnamuutujad. Tagastab:
+Parandab konkreetse teenusepakkuja puuduvad või rikutud OAuth-keskkonnamuutujad. Tagastab:
 
 ```json
 {
@@ -1216,8 +1220,8 @@ GET /api/system/version
 ```
 
 Ainult tagasisideaadressilt ligipääsetav haldusmarsruut (administraatori autentimine). Tagastab töötava versiooni, uusima
-avaldatud versiooni ja automaatse värskendamise oleku. `releaseChannel` ja `channels` on lisanduvad
-väljad (haru 3.8.54); `channel` säilitab oma tähenduse — juurutusrežiim, mida töölaua värskendaja
+avaldatud versiooni ja automaatvärskenduse oleku. `releaseChannel` ja `channels` on lisaväljad
+(haru 3.8.54); `channel` säilitab oma tähenduse — juurutusrežiim, mida juhtpaneeli värskendaja
 kasutab (`npm`, `source` või `docker-compose`).
 
 ```json
@@ -1236,10 +1240,10 @@ kasutab (`npm`, `source` või `docker-compose`).
 
 - `releaseChannel` — töötava järgu npm-kanal: `nightly` versioonide `-nightly.*` puhul,
   `next` muude eelväljalasete puhul (`-rc.*`, `-beta.*`, `-alpha.*`), `lts` stabiilse versiooni puhul,
-  mille põhiversioon on vanem kui `channels.latest`, muul juhul `latest`. Kehtivad samad reeglid nagu failis
+  mille põhiversioon on vanem kui `channels.latest`, muul juhul `latest`. Samad reeglid nagu failis
   `scripts/release/dist-tag.mjs`, mis valib avaldamise ajal npm-i dist-tag’i.
 - `channels` — iga dist-tag’i avaldatud uusim versioon käsust `npm view omniroute dist-tags` (registri
-  HTTP-varuvariant), mis puhverdatakse sama 10-minutilise TTL-iga nagu `latest`. `latest` on alati olemas
+  HTTP-varuvariant), mis on vahemällu salvestatud sama 10-minutilise TTL-iga nagu `latest`. `latest` on alati olemas
   (varuvariandina kasutatakse välja `latest`, seejärel väärtust `"unavailable"`); `next`, `nightly` ja `lts` kuvatakse
   ainult siis, kui vastav dist-tag on olemas. Päring `Cache-Control: no-cache` värskendab mõlemat päringut.
 

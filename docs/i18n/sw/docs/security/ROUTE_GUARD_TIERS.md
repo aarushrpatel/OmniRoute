@@ -8,25 +8,25 @@
 
 Njia zote za API ya usimamizi ya OmniRoute zimeainishwa katika mojawapo ya viwango vitatu vya ulinzi. Uainishaji huu ni tuli, umefafanuliwa katika `src/server/authz/routeGuard.ts`, na unatathminiwa kabla ya tawi jingine lolote la uthibitishaji kutekelezwa.
 
-## Viwango
+## Ngazi
 
-### Kiwango cha 1 — LOCAL_ONLY
+### Ngazi ya 1 — LOCAL_ONLY
 
-**Hutekelezwa na:** `isLocalOnlyPath(path)` → ukaguzi wa seva mwenyeji ya loopback
-**Njia ya kupita:** Hakuna kwa chaguo-msingi. Kuna ruhusa finyu kwa njia zilizo katika
+**Inatekelezwa na:** `isLocalOnlyPath(path)` → ukaguzi wa seva mwenyeji ya loopback  
+**Njia ya kukwepa:** Hakuna kwa chaguo-msingi. Kuna ruhusa finyu kwa njia zilizo katika
 `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` wakati ombi lina ufunguo halali wa
-API wenye wigo wa `manage` (angalia [Ruhusa ya wigo wa manage](#manage-scope-carve-out)).
+API wenye upeo wa `manage` (angalia [Ruhusa ya upeo wa manage](#manage-scope-carve-out)).
 
-Njia hizi huanzisha michakato tanzu au kutekeleza msimbo wa wakati wa utekelezaji. Kuzifanya
-zipatikane kwa trafiki isiyo ya loopback kungemruhusu mshambulizi aliyepata JWT halali (k.m.,
-kupitia handaki la Cloudflared/Ngrok) kuanzisha michakato — aina inayojulikana ya CVE
-([GHSA-fhh6-4qxv-rpqj](https://github.com/advisories/GHSA-fhh6-4qxv-rpqj)).
+Njia hizi huanzisha michakato-toto au kutekeleza msimbo wakati wa uendeshaji. Kuzifanya
+zipatikane kwa trafiki isiyotoka kwenye loopback kungemruhusu mshambuliaji aliyepata JWT halali (k.m.,
+kupitia handaki la Cloudflared/Ngrok) kuanzisha michakato — aina inayojulikana ya
+CVE ([GHSA-fhh6-4qxv-rpqj](https://github.com/advisories/GHSA-fhh6-4qxv-rpqj)).
 
-**GHSA-fhh6-4qxv-rpqj ni nini (aina ya shambulio):** seva ya usimamizi/ajenti
-hufichua endpoint inayozindua mchakato tanzu (`npm install`, `node`, kivinjari,
+**GHSA-fhh6-4qxv-rpqj ni nini (aina ya shambulizi):** seva ya usimamizi/ajenti
+hufichua endpoint inayozindua mchakato-mdogo (`npm install`, `node`, kivinjari,
 proksi, `git`, `tar`, …). Ikiwa endpoint hiyo inaweza kufikiwa kutoka nje ya seva — kwa sababu
 mwendeshaji aliweka OmniRoute nyuma ya handaki la nginx/Cloudflare/Tailscale na JWT
-ikavuja, au uthibitishaji ulisanidiwa vibaya — mshambulizi hubadilisha "ita API" kuwa "tekeleza
+ikavuja, au uthibitishaji ulisanidiwa vibaya — mshambuliaji hubadilisha "ita API" kuwa "tekeleza
 amri kwenye seva" (utekelezaji wa msimbo kwa mbali). OmniRoute huzuia hili kwa kutekeleza
 **ukaguzi wa seva mwenyeji ya loopback bila masharti, kabla ya ukaguzi wowote wa uthibitishaji**, kwenye kila
 njia inayoweza kuanzisha mchakato: tokeni iliyovuja kupitia handaki bado haiwezi kufikia uanzishaji wa mchakato.
@@ -34,164 +34,168 @@ njia inayoweza kuanzisha mchakato: tokeni iliyovuja kupitia handaki bado haiwezi
 **Seti kamili ya LOCAL_ONLY.** Chanzo rasmi ni
 `LOCAL_ONLY_API_PREFIXES` / `LOCAL_ONLY_API_PATTERNS` katika
 `src/server/authz/routeGuard.ts`; jedwali lililo hapa chini linaakisi hali ya sasa. Kizuizi cha
-`check-route-guard-membership` huorodhesha kila `route.ts` chini ya
-viambishi awali vinavyoweza kuanzisha michakato na husababisha CI ishindwe ikiwa mojawapo haijaainishwa kuwa ya ndani pekee.
+`check-route-guard-membership` huorodhesha kila `route.ts` iliyo chini ya
+viambishi awali vinavyoweza kuanzisha michakato na husababisha CI ishindwe ikiwa yoyote haijaainishwa kuwa ya ndani pekee.
 
-| Kiambishi / muundo                                                                                       | Kwa nini ni ya ndani pekee                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/mcp/`                                                                                              | Seva ya MCP — huanzisha madaraja ya stdio + vishughulikiaji vya SSE                                                                                 |
-| `/api/cli-tools/runtime/`                                                                                | Mazingira ya utekelezaji ya zana ya CLI — hutekeleza msimbo wowote wa programu-jalizi                                                               |
-| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | Viandikaji vya mipangilio kwa kila zana vinavyoweza kufikia faili tekelezi/usanidi wa zana kwenye seva mwenyeji                                     |
-| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | Uanzishaji uleule wa `getCliRuntimeStatus()` kama zana sita zinazohusiana zilizo hapo juu (GHSA-35fw-cv32-2373)                                     |
-| `/api/cli-tools/{all-statuses,status,detect}`                                                            | Ukaguzi wa orodha ya CLI — huanzisha `command -v` / `--version` kwa kila zana (GHSA-35fw-cv32-2373)                                                 |
-| `/api/cli-tools/antigravity-mitm`                                                                        | Udhibiti wa proksi ya MITM ya Antigravity (huanzisha/huelekeza proksi ya mfumo)                                                                     |
-| `/api/modality-bridge/video/`                                                                            | Ukaguzi wa mazingira ya utekelezaji wa Video Bridge wa kitanzi-nyuma kinachoaminika kikamilifu na daraja la ndani la uchimbaji                      |
-| `/api/services/`                                                                                         | Huduma zilizopachikwa (9Router / CLIProxy / Bifrost / Mux / Dario) — `npm install` + uanzishaji                                                     |
-| `/dashboard/providers/services/`                                                                         | Proksi ya kinyume kuelekea violesura vya huduma zilizopachikwa                                                                                      |
-| `/api/tunnels/cloudflared`                                                                               | Husakinisha/huanzisha faili tekelezi ya cloudflared                                                                                                 |
-| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | Husakinisha/hudhibiti tailscaled kwenye seva mwenyeji                                                                                               |
-| `/api/copilot/`                                                                                          | Kiendeshi cha LLM kisichohitaji uthibitishaji — ni cha CLI pekee kwa chaguo-msingi                                                                  |
-| `/api/tools/agent-bridge/`                                                                               | AgentBridge — huanzisha seva ya MITM + uhariri wa DNS                                                                                               |
-| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — kisikilizaji cha http-proxy + proksi ya mfumo                                                                                   |
-| `/api/settings/mitm`                                                                                     | Huwezesha udakaji wa MITM (hali ya proksi katika kiwango cha mfumo)                                                                                 |
-| `/api/issue-agent/`                                                                                      | Ajenti wa masuala — huanzisha zana za ndani dhidi ya hazina                                                                                         |
-| `/api/plugins/`, `/api/plugins`                                                                          | Programu-jalizi — hupakia/hutekeleza kupitia `worker_threads` + `child_process`                                                                     |
-| `/api/middleware/`                                                                                       | Middleware ya mtumiaji — hupakia/hutekeleza msimbo wa opereta ndani ya mchakato                                                                     |
-| `/api/system/version`                                                                                    | Usasishaji otomatiki (POST pekee; GET/HEAD/OPTIONS hazihusiki) — huanzisha `git checkout` + `npm install`                                           |
-| `/api/db-backups/exportAll`                                                                              | Huanzisha `tar` kwa ajili ya kumbukumbu ya uhamishaji                                                                                               |
-| `/api/local/`                                                                                            | Vizinduzi vya ndani vya mbofyo 1 (Redis kwa sasa) — huanzisha podman/docker                                                                         |
-| `/api/headroom/start`, `/api/headroom/stop`                                                              | Mzunguko wa maisha wa proksi ya Headroom — huanzisha CLI ya python / hutuma ishara kwa PID                                                          |
-| `/api/jobs`, `/api/jobs/`                                                                                | Udhibiti wa kiendeshaji cha kazi — hutekeleza kazi zilizoratibiwa upande wa seva mwenyeji                                                           |
-| `/api/oauth/cursor/auto-import`                                                                          | `execFile("which", ["cursor"])` kabla ya kuleta vitambulisho                                                                                        |
-| `/api/oauth/kiro/auto-import`                                                                            | Husoma faili za vitambulisho vya Kiro CLI kutoka kwenye seva mwenyeji                                                                               |
-| `/api/skills/collect/`                                                                                   | Ukusanyaji wa ujuzi — hutambua/husakinisha zana za ndani                                                                                            |
-| `/api/skills/install`, `/api/skills/executions`                                                          | Usajili + utekelezaji wa kishughulikiaji cha ujuzi — hufikia uanzishaji wa kontena la sandbox (GHSA-jx89)                                           |
-| `/api/discovery/`                                                                                        | Ukaguzi wa ugunduzi wa mtandao/mtoa huduma wa ndani                                                                                                 |
-| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | Huanzisha kivinjari chenye kiolesura + kipindi cha VNC kwa ajili ya kuingia kwa mwingiliano                                                         |
-| `/api/acp/agents`                                                                                        | ACP — hugundua na kuanzisha faili-tekelezi za mawakala wa CLI zilizo kwenye mashine ya ndani                                                        |
-| `/api/resilience/connections`                                                                            | JSON ya ustahimilivu kwa kila akaunti (kipindi cha kusubiri, kivunja-mzunguko, kufungiwa). HTML ya dashibodi haizuiliwi kwa mashine ya ndani pekee. |
-| `/api/providers/cursor/agent-availability`                                                               | Ukaguzi wa dashibodi wa kukumbusha usakinishaji — huanzisha `cursor-agent status --format json`                                                     |
-| `/api/providers/{id}/login` (regex)                                                                      | Huzindua Playwright Chromium yenye kiolesura kwa ajili ya kuingia kwa kuki za wavuti                                                                |
-| `/api/providers/volcengine-plan/connect` (regex)                                                         | Mtiririko wa mwenyewe wenye kiolesura + kuingia kiotomatiki kwa simu/SMS kulingana na kipindi (huanzisha Playwright)                                |
-| `/api/providers/{id}/refresh-cursor` (regex)                                                             | Usasishaji wa mwenyewe wa kipindi cha Cursor — hukumbusha `cursor-agent`                                                                            |
-| `/api/providers/{id}/chatgpt-web-codex-doctor` (regex)                                                   | Hutambua matatizo ya usakinishaji wa ndani wa Codex CLI (huanzisha faili-tekelezi)                                                                  |
+| Kiambishi / muundo                                                                                       | Kwa nini ni ya ndani pekee                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/mcp/`                                                                                              | Seva ya MCP — huanzisha madaraja ya stdio + vishughulikiaji vya SSE                                                                          |
+| `/api/cli-tools/runtime/`                                                                                | Mazingira ya utekelezaji ya zana ya CLI — hutekeleza msimbo wowote wa programu-jalizi                                                        |
+| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | Viandikaji vya mipangilio kwa kila zana vinavyoweza kugusa faili tekelezi/mipangilio ya zana kwenye seva mwenyeji                            |
+| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | Uanzishaji uleule wa `getCliRuntimeStatus()` kama zana sita zinazohusiana zilizo hapo juu (GHSA-35fw-cv32-2373)                              |
+| `/api/cli-tools/{all-statuses,status,detect}`                                                            | Ukaguzi wa orodha ya CLI — huanzisha `command -v` / `--version` kwa kila zana (GHSA-35fw-cv32-2373)                                          |
+| `/api/cli-tools/antigravity-mitm`                                                                        | Udhibiti wa proksi ya MITM ya Antigravity (huanzisha/huelekeza proksi ya mfumo)                                                              |
+| `/api/modality-bridge/video/`                                                                            | Ukaguzi wa wakati wa utekelezaji wa Video Bridge unaoamini kikamilifu loopback na daraja la ndani la uchimbaji                               |
+| `/api/services/`                                                                                         | Huduma zilizopachikwa (9Router / CLIProxy / Bifrost / Mux / Dario) — `npm install` + uanzishaji                                              |
+| `/dashboard/providers/services/`                                                                         | Proksi geuzi kwenda violesura vya huduma zilizopachikwa                                                                                      |
+| `/api/tunnels/cloudflared`                                                                               | Husakinisha/huanzisha faili tekelezi ya cloudflared                                                                                          |
+| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | Husakinisha/hudhibiti tailscaled kwenye seva mwenyeji                                                                                        |
+| `/api/copilot/`                                                                                          | Kiendeshi cha LLM kisichohitaji uthibitishaji — kwa chaguo-msingi ni cha CLI pekee                                                           |
+| `/api/tools/agent-bridge/`                                                                               | AgentBridge — huanzisha seva ya MITM + mabadiliko ya DNS                                                                                     |
+| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — kisikilizaji cha http-proxy + proksi ya mfumo                                                                            |
+| `/api/settings/mitm`                                                                                     | Huwezesha udakaji wa MITM (hali ya proksi ya kiwango cha mfumo)                                                                              |
+| `/api/issue-agent/`                                                                                      | Wakala wa masuala — huanzisha zana za ndani dhidi ya hazina                                                                                  |
+| `/api/plugins/`, `/api/plugins`                                                                          | Programu-jalizi — hupakia/hutekeleza kupitia `worker_threads` + `child_process`                                                              |
+| `/api/middleware/`                                                                                       | Programu ya kati ya mtumiaji — hupakia/hutekeleza msimbo wa mwendeshaji ndani ya mchakato                                                    |
+| `/api/system/version`                                                                                    | Usasishaji otomatiki (POST pekee; GET/HEAD/OPTIONS hazihusiki) — huanzisha `git checkout` + `npm install`                                    |
+| `/api/db-backups/exportAll`                                                                              | Huanzisha `tar` kwa ajili ya jalada la uhamishaji                                                                                            |
+| `/api/local/`                                                                                            | Vianzishaji vya ndani vya mbofyo mmoja (Redis kwa sasa) — huanzisha podman/docker                                                            |
+| `/api/headroom/start`, `/api/headroom/stop`                                                              | Mzunguko wa maisha wa proksi ya Headroom — huanzisha CLI ya python / hutuma ishara kwa PID                                                   |
+| `/api/jobs`, `/api/jobs/`                                                                                | Udhibiti wa kiendeshaji kazi — hutekeleza kazi zilizoratibiwa kwenye seva mwenyeji                                                           |
+| `/api/oauth/cursor/auto-import`                                                                          | `execFile("which", ["cursor"])` kabla ya kuingiza vitambulisho                                                                               |
+| `/api/oauth/kiro/auto-import`                                                                            | Husoma faili za vitambulisho vya Kiro CLI kutoka kwenye seva mwenyeji                                                                        |
+| `/api/skills/collect/`                                                                                   | Ukusanyaji wa ujuzi — hugundua/husakinisha zana za ndani                                                                                     |
+| `/api/skills/install`, `/api/skills/executions`                                                          | Usajili na utekelezaji wa kidhibiti cha Skill — hufikia uanzishaji wa kontena la sandbox (GHSA-jx89)                                         |
+| `/api/discovery/`                                                                                        | Majaribio ya ugunduzi wa mtandao wa ndani/mtoa huduma                                                                                        |
+| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | Huanzisha kivinjari chenye kiolesura + kipindi cha VNC kwa ajili ya kuingia kwa mwingiliano                                                  |
+| `/api/acp/agents`                                                                                        | ACP — hugundua na kuanzisha faili za programu tekelezi za wakala wa CLI zilizo kwenye mashine ya ndani                                       |
+| `/api/resilience/connections`                                                                            | JSON ya ustahimilivu kwa kila akaunti (kipindi cha kusubiri, kikataji, kufungiwa). HTML ya dashibodi haijazuiwa kwa matumizi ya ndani pekee. |
+| `/api/providers/cursor/agent-availability`                                                               | Ukaguzi wa dashibodi unaohimiza usakinishaji — huanzisha `cursor-agent status --format json`                                                 |
+| `/api/providers/{id}/login` (regex)                                                                      | Huanzisha Playwright Chromium yenye kiolesura kwa ajili ya kuingia kwa kutumia cookie ya wavuti                                              |
+| `/api/providers/volcengine-plan/connect` (regex)                                                         | Mtiririko wa mikono wenye kiolesura + kuingia kiotomatiki kwa simu/SMS kulingana na kipindi (huanzisha Playwright)                           |
+| `/api/providers/{id}/refresh-cursor` (regex)                                                             | Kufanya upya kipindi cha Cursor kwa mikono — huchochea `cursor-agent`                                                                        |
+| `/api/providers/{id}/chatgpt-web-codex-doctor` (regex)                                                   | Hutambua matatizo ya usakinishaji wa ndani wa Codex CLI (huanzisha faili ya programu tekelezi)                                               |
 
-**Jibu panapotokea ukiukaji:** `403 LOCAL_ONLY`
+**Jibu kunapotokea ukiukaji:** `403 LOCAL_ONLY`
 
-#### Ruhusa maalumu ya upeo wa usimamizi
+#### Msamaha wa upeo wa manage
 
-Sehemu ndogo ya njia za LOCAL_ONLY INAWEZA pia kufikiwa kutoka anwani isiyo ya loopback ikiwa na
-ikiwa tu ombi lina `Authorization: Bearer <api-key>` ambayo
-metadata yake inajumuisha upeo wa `manage` (au `admin`). Ruhusa hii maalumu inadhibitiwa
+Sehemu ndogo ya njia za LOCAL_ONLY INAWEZA pia kufikiwa kutoka anwani zisizo za loopback ikiwa na
+tu ikiwa ombi lina `Authorization: Bearer <api-key>` ambayo
+metadata yake inajumuisha upeo wa `manage` (au `admin`). Msamaha huu unadhibitiwa
 waziwazi kwa kila njia kupitia `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` ili
-chaguo-msingi kwa njia yoyote mpya ya LOCAL_ONLY liendelee kuwa loopback pekee. Maombi
-yasiyothibitishwa na maombi yenye funguo zisizo na upeo wa usimamizi bado yanakataliwa kwa
+chaguo-msingi kwa njia yoyote mpya ya LOCAL_ONLY liendelee kuwa loopback pekee kwa masharti makali. Maombi
+yasiyothibitishwa na maombi yenye funguo zisizo za manage bado yanakataliwa kwa
 `403 LOCAL_ONLY`.
 
-Kwa sasa kiambishi-awali pekee kinachoweza kuruhusiwa kupita ni `/api/mcp/`. `/api/cli-tools/runtime/` na
-`/api/services/` zimeondolewa kwa makusudi kwa sababu zinaweza kuanzisha michakato-tanzu
-ya kiholela (`npm install`, `node`), ambayo ndiyo aina halisi ya CVE ambayo
+Kwa sasa, kiambishi awali pekee kinachoweza kusamehewa ni `/api/mcp/`. `/api/cli-tools/runtime/` na
+`/api/services/` zimeondolewa kimakusudi kwa sababu zinaweza kuanzisha
+michakato midogo yoyote (`npm install`, `node`), ambayo ndiyo aina halisi ya CVE ambayo
 kiwango cha LOCAL_ONLY kimeundwa kuzuia.
 
-**#7895 — upeo finyu wa `mcp:connect`:** ruhusa maalumu ya `/api/mcp/` PIA inakubali
+**#7895 — upeo finyu wa `mcp:connect`:** msamaha wa `/api/mcp/` PIA unakubali
 ufunguo wa Bearer wenye upeo finyu wa `mcp:connect`
 (`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`), unaokaguliwa kupitia
 `hasMcpConnectOrManageScope()` katika `src/server/authz/policies/management.ts`.
-Hii imewekewa upeo wa `/api/mcp/` PEKEE — `mcp:connect` haitoi ruhusa yoyote kwenye njia nyingine
-yoyote ya usimamizi (ikiwemo kila kiambishi-awali kingine cha LOCAL_ONLY kinachoruhusu kupita, endapo
-kitawahi kuongezwa), na imeondolewa kwa makusudi kutoka
-`MANAGEMENT_API_KEY_SCOPES`. Ufunguo wenye `manage`/`admin` bado unapita kwenye
-ruhusa hii maalumu kama hapo awali; `mcp:connect` ni chaguo mbadala lenye mamlaka ya chini
-kwa wapigaji simu wa mbali wa MCP pekee ambao hawapaswi kuhitaji ufikiaji mpana wa usimamizi.
+Huu umewekewa mipaka kwa `/api/mcp/` PEKEE — `mcp:connect` haitoi ruhusa yoyote kwenye njia nyingine yoyote
+ya usimamizi (ikiwemo kila kiambishi awali kingine cha msamaha wa LOCAL_ONLY, iwapo kimoja kitaongezwa),
+na imeondolewa kwa makusudi kutoka
+`MANAGEMENT_API_KEY_SCOPES`. Ufunguo wenye `manage`/`admin` bado unaruhusiwa na
+msamaha kama hapo awali; `mcp:connect` ni njia mbadala yenye mapendeleo machache
+kwa wapigaji wa mbali wa MCP pekee ambao hawapaswi kuhitaji ufikiaji mpana wa usimamizi.
 
-| Ombi                                            | Njia                       | Matokeo                       |
-| ----------------------------------------------- | -------------------------- | ----------------------------- |
-| Si loopback, hakuna Bearer                      | `/api/mcp/*`               | 403 LOCAL_ONLY                |
-| Si loopback, Bearer yenye upeo wa `manage`      | `/api/mcp/*`               | Ruhusu                        |
-| Si loopback, Bearer yenye upeo wa `mcp:connect` | `/api/mcp/*`               | Ruhusu                        |
-| Si loopback, Bearer bila `manage`/`mcp:connect` | `/api/mcp/*`               | 403 LOCAL_ONLY                |
-| Si loopback, Bearer yenye upeo wa `mcp:connect` | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY                |
-| Si loopback, Bearer yenye upeo wa `manage`      | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY                |
-| Loopback, Bearer yoyote/hakuna                  | LOCAL_ONLY yoyote          | Ruhusu (kizuizi kinapitishwa) |
+| Ombi                                                      | Njia                       | Matokeo                     |
+| --------------------------------------------------------- | -------------------------- | --------------------------- |
+| Isiyo ya loopback, bila Bearer                            | `/api/mcp/*`               | 403 LOCAL_ONLY              |
+| Isiyo ya loopback, Bearer yenye upeo wa `manage`          | `/api/mcp/*`               | Ruhusu                      |
+| Isiyo ya loopback, Bearer yenye upeo wa `mcp:connect`     | `/api/mcp/*`               | Ruhusu                      |
+| Isiyo ya loopback, Bearer isiyo na `manage`/`mcp:connect` | `/api/mcp/*`               | 403 LOCAL_ONLY              |
+| Isiyo ya loopback, Bearer yenye upeo wa `mcp:connect`     | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY              |
+| Isiyo ya loopback, Bearer yenye upeo wa `manage`          | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY              |
+| Loopback, Bearer yoyote/bila Bearer                       | LOCAL_ONLY yoyote          | Ruhusu (lango limepitishwa) |
 
-#### Mwongozo wa waendeshaji na ukaguzi
+#### Mwongozo wa mwendeshaji na ukaguzi
 
 Ikiwa unaendesha OmniRoute nyuma ya proksi ya kinyume au handaki (nginx, Caddy, Cloudflare
-Tunnel, Tailscale, Ngrok), ukaguzi wa loopback bado hulinda njia zinazoweza
-kuanzisha michakato zilizo hapo juu — ombi ambalo anwani ya mteja wake si loopback hukataliwa kwa
-`403 LOCAL_ONLY` **kabla uthibitishaji haujaanza**, kwa hivyo JWT iliyovuja haiwezi kufikia uanzishaji wa mchakato. Majukumu mawili
+Tunnel, Tailscale, Ngrok), ukaguzi wa loopback bado hulinda njia zilizo hapo juu
+zinazoweza kuanzisha michakato — ombi ambalo anwani ya mteja wake si ya loopback hukataliwa kwa
+`403 LOCAL_ONLY` **kabla uthibitishaji haujaendeshwa**, kwa hivyo JWT iliyovuja haiwezi kufikia uanzishaji wa mchakato. Majukumu mawili
 ya mwendeshaji yanasalia:
 
-- **Usijaribu "kurekebisha" 403 kwa kughushi IP ya mteja kuwa loopback.** Kuweka
+- **Usijaribu "kurekebisha" 403 kwa kughushi IP ya mteja kuwa anwani ya loopback.** Kuweka
   `X-Forwarded-For: 127.0.0.1`, au kutumia proksi inayobadilisha anwani chanzo kuwa
-  loopback, hufungua tena aina ileile ya RCE ambayo kiwango hiki hufunga. Fichua
-  dashibodi/API kupitia proksi — kamwe usifichue njia zinazoweza kuanzisha michakato.
-- **Dumisha ruhusa maalumu ya upeo wa usimamizi ikiwa ndogo kadiri iwezekanavyo.** Ni `/api/mcp/` pekee inayoweza kuruhusiwa kupita, na
-  kwa kutumia tu ufunguo wa API wenye upeo wa `manage`. `SPAWN_CAPABLE_PREFIXES` haziwezi kamwe
-  kuongezwa kwenye orodha ya kuruhusu kupita — schema ya zod inazikataa na
-  `isLocalOnlyBypassableByManageScope` inazikataa wakati wa utekelezaji (ulinzi wa kina),
-  ambacho ndicho dashibodi inachomaanisha kwa "haziwezi kufanywa ziweze kuruhusiwa kupita". Njia zenye sehemu
-  zinazobadilika na njia tuli zinazoweza kuanzisha michakato chini ya `/api/providers/` (k.m. `/login`,
-  `/refresh-cursor`) zinashughulikiwa na vijenzi vya regex vya `SPAWN_CAPABLE_PATTERNS` /
+  loopback, hufungua tena aina ileile ya RCE ambayo tabaka hili hufunga. Fichua
+  dashibodi/API kupitia proksi — kamwe si njia zenye uwezo wa kuanzisha michakato.
+- **Weka upitaji wa upeo wa manage kuwa wa kiwango cha chini kabisa.** Ni `/api/mcp/` pekee inayoweza kupitiwa, na
+  ni kwa kutumia ufunguo wa API wenye upeo wa `manage` pekee. `SPAWN_CAPABLE_PREFIXES` haziwezi kamwe
+  kuongezwa kwenye orodha ya upitaji — schema ya zod huzikataa na
+  `isLocalOnlyBypassableByManageScope` huzikataa wakati wa utekelezaji (ulinzi wa kina),
+  jambo ambalo dashibodi humaanisha kwa kusema "haziwezi kufanywa zipitike". Kipakiaji cha snapshot
+  cha wakati wa utekelezaji pia huondoa maingizo kama hayo kutoka kwenye safu ya mipangilio iliyohifadhiwa, na
+  uingizaji wa JSON wa zamani (`/api/settings/import-json`) hauandiki kamwe funguo za upitaji.
+  Kila ingizo la `LOCAL_ONLY_API_PREFIXES` lazima liwe ama kwenye orodha ya marufuku au
+  limekaguliwa kuwa linafaa kupitiwa (`tests/unit/authz/local-only-bypass-spawn-denylist.test.ts`). Njia zenye
+  sehemu zinazobadilika na njia tuli zenye uwezo wa kuanzisha michakato chini ya `/api/providers/` (k.m. `/login`,
+  `/refresh-cursor`) zinashughulikiwa na nyongeza inayotegemea regex ya `SPAWN_CAPABLE_PATTERNS` /
   `SPAWN_CAPABLE_PATTERN_ANCESTORS` katika
-  `src/shared/constants/spawnCapablePrefixes.ts`, si safu tambarare ya
-  `SPAWN_CAPABLE_PREFIXES` — safu tambarare ingelazimika kujumuisha kiambishi-awali kizima cha
-  `/api/providers/` ili kuzinasa, jambo ambalo lingepanua kupita kiasi mti wa njia ambao
-  dashibodi za mbali hutumia kihalali kwa CRUD ya watoa huduma.
+  `src/shared/constants/spawnCapablePrefixes.ts`, si kwa safu bapa ya
+  `SPAWN_CAPABLE_PREFIXES` — safu bapa ingelazimika kufunika kiambishi awali kizima cha
+  `/api/providers/` ili kuzinasa, jambo ambalo lingepanua kupita kiasi mti wa njia
+  ambao dashibodi za mbali hutumia kihalali kwa CRUD ya watoa huduma.
 
-**Kukagua ufikiaji** — ili kuthibitisha kuwa hakuna kitu kutoka nje ya seva kinachofikia njia hizi:
+**Ukaguzi wa ufikiaji** — ili kuthibitisha kuwa hakuna chochote kutoka nje ya mwenyeji kinachofikia njia hizi:
 
 - Fungua **Orodha ya Uidhinishaji** kwenye `/dashboard/settings/security`: inaonyesha
-  orodha ya moja kwa moja ya viambishi awali vya LOCAL_ONLY, viambishi awali vinavyoweza kupitwa, na seti ya
-  wakati wa ukompilishaji inayoweza kuanzisha michakato ("haiwezi kuruhusiwa kupitwa").
-- Tumia Grep kwenye kumbukumbu za reverse-proxy / ufikiaji ukitafuta viambishi awali vilivyo hapo juu vilivyooanishwa na
-  anwani ya mteja isiyo ya loopback. Tukio lolote kama hilo lililorejesha `200` badala ya
-  `403 LOCAL_ONLY` linamaanisha proxy inaficha IP halisi ya mteja — rekebisha proxy.
-- `403 LOCAL_ONLY` katika kumbukumbu za OmniRoute kwa mojawapo ya njia hizi inamaanisha ulinzi
-  unafanya kazi kama ilivyokusudiwa, si hitilafu ya kuficha.
+  orodha hai ya viambishi awali vya LOCAL_ONLY, viambishi awali vinavyoweza kupitiwa, na seti ya wakati wa utungaji
+  yenye uwezo wa kuanzisha michakato ("haiwezi kufanywa ipitike").
+- Tafuta kwenye kumbukumbu za proksi yako ya nyuma / ufikiaji viambishi awali vilivyo hapo juu vilivyooanishwa na
+  anwani ya mteja isiyo ya loopback. Ombi lolote kama hilo lililorudisha `200` badala ya
+  `403 LOCAL_ONLY` linamaanisha proksi inaficha IP halisi ya mteja — rekebisha proksi.
+- `403 LOCAL_ONLY` katika kumbukumbu za OmniRoute kwa mojawapo ya njia hizi ni ulinzi
+  unaofanya kazi kama ulivyokusudiwa, si hitilafu ya kufichwa.
 
-### Kiwango cha 2 — ALWAYS_PROTECTED
+### Tabaka la 2 — ALWAYS_PROTECTED
 
 **Inatekelezwa na:** `isAlwaysProtectedPath(path)` → ruka upitaji wa `requireLogin=false`
 **Upitaji:** Hakuna wakati `requireLogin=false`; JWT inahitajika kila wakati
 
-Njia hizi zina athari haribifu au zisizoweza kutenduliwa. Kuziruhusu katika usakinishaji
-"usio na nenosiri" kungemaanisha mtu yeyote kwenye LAN hiyo hiyo angeweza kufuta hifadhidata au kusitisha
+Njia hizi ni haribifu au haziwezi kutenduliwa. Kuziruhusu katika usakinishaji "usio na nenosiri"
+kungemaanisha mtu yeyote kwenye LAN hiyo hiyo angeweza kufuta hifadhidata au kusitisha
 mchakato wa seva.
 
 | Njia                                      | Sababu                                                                            |
 | ----------------------------------------- | --------------------------------------------------------------------------------- |
 | `/api/shutdown`                           | Husitisha mchakato wa seva                                                        |
-| `/api/settings/database`                  | Uhamishaji nje, uingizaji na ufutaji wa hifadhidata                               |
-| `/api/db-backups`                         | Ufikiaji wa hifadhi kamili ya nakala rudufu ya hifadhidata                        |
-| `/api/settings/export-json`               | Huhamisha nje mkusanyiko kamili wa mipangilio (ikiwemo siri)                      |
-| `/api/settings/import-json`               | Hubadilisha mkusanyiko kamili wa mipangilio                                       |
-| `/api/providers/health-autopilot/actions` | Hutekeleza vitendo vya kurekebisha vya autopilot                                  |
+| `/api/settings/database`                  | Kuhamisha nje, kuingiza, na kufuta hifadhidata                                    |
+| `/api/db-backups`                         | Ufikiaji wa kumbukumbu kamili za nakala rudufu za hifadhidata                     |
+| `/api/settings/export-json`               | Huhamisha nje blob kamili ya mipangilio (ikiwemo siri)                            |
+| `/api/settings/import-json`               | Hubadilisha blob kamili ya mipangilio                                             |
+| `/api/providers/health-autopilot/actions` | Hutekeleza vitendo vya urekebishaji vya autopilot                                 |
 | `/api/settings/obsidian`                  | Hutoa vitambulisho vya WebDAV vinavyoweza kutumika tena kwa mzizi wowote wa vault |
 
-**Jibu ukiukaji unapotokea:** `401 Authentication required`
+**Jibu wakati wa ukiukaji:** `401 Uthibitishaji unahitajika`
 
-`/api/settings/obsidian` inajumuisha mtoto wake `/webdav`: `POST` huelekeza huduma ya faili ya WebDAV —
-inayohudumiwa na safu maalum ya Node kabla ya Next.js, nje ya pipeline hii — kwenye mzizi
-uliochaguliwa na mwitaji na kurudisha vitambulisho vipya vya Basic vilivyotolewa, `DELETE` huvizungusha, na `POST`
-ya mzazi huhifadhi tokeni ya Obsidian REST API. GHSA-62vw ilificha tu ufichuaji wa nenosiri kupitia `GET`;
-utoaji bado ulikuwa kwenye kiwango kinachoruhusu ufikiaji iwapo uthibitishaji utashindwa (GHSA-7pq4-8pvv-rx7r). `enableObsidianVaultSync()` pia
-hukataa vault ambayo ni saraka ya data, iko ndani yake, au ina saraka hiyo.
+`/api/settings/obsidian` inashughulikia njia yake mtoto ya `/webdav`: `POST` huelekeza huduma ya faili ya WebDAV —
+inayotolewa na tabaka maalum la Node kabla ya Next.js, nje ya mtiririko huu — kwenye mzizi
+uliochaguliwa na mwombaji na kurudisha vitambulisho vipya vya Basic vilivyotolewa, `DELETE` huvibadilisha, na `POST`
+ya mzazi huhifadhi tokeni ya API ya REST ya Obsidian. GHSA-62vw ilificha tu ufichuaji wa nenosiri wa `GET`;
+utoaji bado ulikuwa kwenye tabaka linaloruhusu wakati wa hitilafu (GHSA-7pq4-8pvv-rx7r). `enableObsidianVaultSync()` pia
+hukataa vault ambayo ni saraka ya data, ipo ndani yake, au ina saraka hiyo.
 
-### Uanzishaji wa usakinishaji mpya ni wa loopback pekee — kwa peer halisi, si `Host`
+### Uanzishaji wa usakinishaji mpya ni wa loopback pekee — kwa rika halisi, si `Host`
 
-Bila nenosiri la usimamizi kusanidiwa (na bila `INITIAL_PASSWORD`), `isAuthRequired()` katika
-`src/shared/utils/apiAuth.ts` hudumisha uanzishaji usiojulikana ukiwa wazi **kwa peer za loopback pekee**.
-Loopback huamuliwa kutoka kwa ishara za peer zinazoaminika, kwa mpangilio huu: peer halisi wa TCP
-aliyewekewa tokeni (`PEER_IP_HEADER` + `VIA_PROXY_HEADER`, kile ambacho sera huona), uamuzi wa
-`AUTHZ_HEADER_PEER_LOCALITY` wa pipeline yenyewe (kile ambacho vishughulikiaji vya route huona, kinachoaminika tu wakati
-`OMNIROUTE_PEER_STAMP_TOKEN` imewekwa), au peer halisi wa socket kwa waitaji wa moja kwa moja. `Host` /
-`nextUrl.hostname` hazitumiki kamwe, na uandikaji wa nenosiri la kwanza
-(`POST /api/settings/require-login`) uko chini ya kizuizi hicho hicho badala ya kuwa wazi kwa kila
-peer wa mtandao (GHSA-7pq4-8pvv-rx7r). `managementPolicy` hupitisha uamuzi wake wa `peerContext`
-chini kwa uwazi, kwa hivyo vichwa vya ombi la ORIGINAL (kabla ya kuondolewa) haviwezi kuamua hilo.
+Bila nenosiri la usimamizi lililosanidiwa (na bila `INITIAL_PASSWORD`), `isAuthRequired()` katika
+`src/shared/utils/apiAuth.ts` huweka uanzishaji usiojulikana wazi **kwa rika za loopback pekee**.
+Loopback huamuliwa kutoka kwa ishara zinazoaminika za rika, kwa mpangilio huu: rika halisi la TCP lililowekewa tokeni
+(`PEER_IP_HEADER` + `VIA_PROXY_HEADER`, kile sera inachoona), uamuzi wa
+`AUTHZ_HEADER_PEER_LOCALITY` wa mtiririko wenyewe (kile washughulikiaji wa njia wanachoona, kinachoaminika tu wakati
+`OMNIROUTE_PEER_STAMP_TOKEN` imewekwa), au rika halisi la soketi kwa waombaji wa moja kwa moja. `Host` /
+`nextUrl.hostname` hazishauriwi kamwe, na uandishi wa nenosiri la kwanza
+(`POST /api/settings/require-login`) uko chini ya sharti hilohilo badala ya kuwa wazi kwa kila
+rika la mtandao (GHSA-7pq4-8pvv-rx7r). `managementPolicy` hupitisha uamuzi wake wa `peerContext`
+moja kwa moja kwenda chini, kwa hivyo vichwa vya ombi la ORIGINAL (kabla ya kuondolewa) haviwezi kuuamua.
 
-### Kiwango cha 3 — MANAGEMENT (chaguo-msingi)
+### Tabaka la 3 — MANAGEMENT (chaguo-msingi)
 
 Njia nyingine zote za usimamizi. Uthibitishaji unahitajika isipokuwa `requireLogin=false`
 imesanidiwa. Tokeni za CLI zinaweza kuthibitisha njia hizi (loopback + HMAC halali).

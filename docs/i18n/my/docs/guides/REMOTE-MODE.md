@@ -237,18 +237,21 @@ xAI သို့မဟုတ် Grok CLI ကို ချိတ်ဆက်သ�
 
 ---
 
-## Token များကို စီမံခြင်း
+## တိုကင်များကို စီမံခန့်ခွဲခြင်း
 
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
-#   ↳ secret ကို တစ်ကြိမ်တည်းသာ ပြသသည် — ယခုပင် ကူးယူထားပါ
-omniroute tokens list                 # ဖုံးကွယ်ထားသည်- id, name, scope, prefix, status, expiry
+#   ↳ လျှို့ဝှက်တန်ဖိုးကို တစ်ကြိမ်သာ ပြသမည် — ယခုပင် ကူးယူထားပါ
+omniroute tokens list                 # ဖုံးကွယ်ထားသည်- id၊ အမည်၊ scope၊ prefix၊ အခြေအနေ၊ သက်တမ်းကုန်ဆုံးချိန်
 omniroute tokens revoke <id|prefix>   # ချက်ချင်း ရုပ်သိမ်းမည်
 omniroute tokens scopes               # scope သုံးမျိုးကို ရှင်းပြမည်
 ```
 
-`tokens` command များအတွက် **admin** credential လိုအပ်သည်။ Dashboard ရှိ
-**Settings → Access Tokens** အောက်တွင်လည်း token များကို စီမံနိုင်သည် (ဖန်တီးခြင်း၊ ရုပ်သိမ်းခြင်း၊ တစ်ကြိမ်သာ ကူးယူခြင်း)။
+`tokens` command များအတွက် **admin** အထောက်အထား လိုအပ်သည်။ Dashboard ရှိ
+**Settings → Access Tokens** အောက်တွင်လည်း တိုကင်များကို စီမံခန့်ခွဲနိုင်သည်
+(ဖန်တီးခြင်း၊ ရုပ်သိမ်းခြင်း၊ တစ်ကြိမ်သာ ကူးယူခြင်း)။
+
+တိုကင်တစ်ခုကို ၎င်းအား ဖန်တီးသူ ပိုင်ဆိုင်သည့် လုပ်ပိုင်ခွင့်ထက် ပိုမိုမြင့်မားသော လုပ်ပိုင်ခွင့်ဖြင့် မည်သည့်အခါမျှ ဖန်တီး၍မရပါ။ `admin` တိုကင်ကို အော်ပရေတာကသာ ဖန်တီးနိုင်သည် — dashboard session၊ server ကိုယ်တိုင်ပေါ်ရှိ local CLI၊ password ဖြင့် `omniroute connect` အသုံးပြုခြင်း သို့မဟုတ် login ပိတ်ထားသော instance တစ်ခုမှတစ်ဆင့် ဖြစ်သည်။ စက်သုံးအထောက်အထားများ (`admin` access token တစ်ခု သို့မဟုတ် `manage`/`admin` scope ပါသော API key တစ်ခု) သည် `write` နှင့် `read` တိုကင်များကိုသာ ဖန်တီးနိုင်သည်။ ၎င်းတို့ကို `--scope admin` တောင်းဆိုပါက `403` ကို ပြန်ပေးသည်။
 
 ---
 

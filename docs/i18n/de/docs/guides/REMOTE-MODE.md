@@ -242,12 +242,20 @@ Ersetzen Sie beim Verbinden mit xAI oder Grok CLI `1455` durch `56121`/`56122` u
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
 #   ↳ gibt das Geheimnis EINMAL aus — kopieren Sie es jetzt
-omniroute tokens list                 # maskiert: ID, Name, Geltungsbereich, Präfix, Status, Ablaufdatum
+omniroute tokens list                 # maskiert: ID, Name, Bereich, Präfix, Status, Ablaufdatum
 omniroute tokens revoke <id|prefix>   # sofort widerrufen
-omniroute tokens scopes               # die drei Geltungsbereiche erläutern
+omniroute tokens scopes               # die drei Bereiche erklären
 ```
 
-`tokens`-Befehle erfordern Admin-Anmeldedaten. Sie können Tokens auch im Dashboard unter **Settings → Access Tokens** verwalten (erstellen, widerrufen, einmalig kopieren).
+`tokens`-Befehle erfordern eine **admin**-Zugangsberechtigung. Sie können Tokens auch im
+Dashboard unter **Settings → Access Tokens** verwalten (erstellen, widerrufen, einmalig kopieren).
+
+Ein Token kann niemals mit mehr Berechtigungen ausgestellt werden, als sein Ersteller besitzt. Ein
+`admin`-Token kann nur vom Betreiber erstellt werden — über die Dashboard-Sitzung, die
+lokale CLI direkt auf dem Server, `omniroute connect` mit dem Passwort oder eine
+Instanz mit deaktivierter Anmeldung. Maschinenzugangsdaten (ein `admin`-Zugriffstoken
+oder ein API-Schlüssel mit dem Bereich `manage`/`admin`) können nur `write`- und `read`-
+Tokens ausstellen; wird bei ihnen `--scope admin` angefordert, wird `403` zurückgegeben.
 
 ---
 

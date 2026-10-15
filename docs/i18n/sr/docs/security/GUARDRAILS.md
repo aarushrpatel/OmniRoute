@@ -17,11 +17,12 @@
 бележи грешку и наставља са следећом заштитном мером уместо да захтев
 прогласи неуспешним. Блокирање је изричита одлука (`block: true`), никада случајност.
 
-## Ugrađeni zaštitni mehanizmi
+## Уграђени заштитни механизми
 
-Registrator automatski učitava šest zaštitnih mehanizama po redosledu prioriteta prilikom uvoza (pogledajte `registry.ts` → `registerDefaultGuardrails()`):
+Регистар при увозу аутоматски учитава шест заштитних механизама према редоследу приоритета
+(погледајте `registry.ts` → `registerDefaultGuardrails()`):
 
-| Prioritet | Naziv               | Faza(e)        | Datoteka              |
+| Приоритет | Назив               | Фаза/фазе      | Датотека              |
 | --------- | ------------------- | -------------- | --------------------- |
 | `5`       | `vision-bridge`     | `preCall`      | `visionBridge.ts`     |
 | `6`       | `audio-bridge`      | `preCall`      | `audioBridge.ts`      |
@@ -30,437 +31,649 @@ Registrator automatski učitava šest zaštitnih mehanizama po redosledu priorit
 | `20`      | `prompt-injection`  | `preCall`      | `promptInjection.ts`  |
 | `95`      | `credential-masker` | `pre` + `post` | `credentialMasker.ts` |
 
-Niži brojevi prioriteta se izvršavaju **prvi**.
+Нижи бројеви приоритета извршавају се **први**.
 
-### Vision Bridge (`visionBridge.ts`) — Modality Bridge PR-1
+### Мост за визуелни садржај (`visionBridge.ts`) — Мост модалитета PR-1
 
-Presreće zahteve koji sadrže slike, a namenjeni su **modelima bez podrške za viziju**, i ili preusmerava ceo zahtev na model sa podrškom za viziju ili zamenjuje delove slike tekstualnim opisima koje proizvodi podesivi vizuelni model pre poziva uzvodno. Ovo omogućava provajderima samo za tekst da transparentno obrađuju multimodalne pakete podataka.
+Пресреће захтеве који садрже слике и који су намењени **моделима без подршке за визуелни садржај**, па или
+преусмерава цео захтев на модел који подржава визуелни садржај или замењује делове са сликама
+текстуалним описима које генерише подесиви модел за визуелни садржај пре
+узводног позива. Ово омогућава добављачима који подржавају само текст да транспарентно обрађују
+мултимодалне корисне садржаје.
 
-Tok:
+Ток:
 
-1.  Preskoči ako ciljni model već podržava viziju (osim ako se ne pojavi na listi `isVisionBridgeForcedModel` za forsirani most).
-2.  Izvlači delove slike putem `extractImageParts(messages)` (`visionBridgeHelpers.ts`), što delegira na **objedinjeni detektor medija** `detectMediaParts()` u `open-sse/utils/mediaParts.ts` — jedini izvor istine koji se deli sa filterom kompatibilnosti kombinacija. Ekstrakcija je dozvoljena samo za delove najvišeg nivoa oblika koje `replaceImageParts` može ponovo spojiti (ugovor o ekstrakciji↔zameni): OpenAI `image_url`, Anthropic base64 `source.type:"base64"`, Anthropic URL `source.type:"url"`, i Responses API `input_image`. Ugnježdeni pogoci i oblici samo za indikatore su materijal za kombinovani filter i nikada se ne izvlače. Preskoči ako ništa nije pronađeno.
-3.  Rešava konfiguraciju tokom izvršavanja putem `resolveVisionBridgeRuntimeSettings()` (`src/shared/constants/modalityBridgeDefaults.ts`): novi `modalityBridge*` ključevi podešavanja pobeđuju; stari `visionBridge*` ključevi ostaju **jednociklični povratak** (prozor za povratak). Preskoči pre bilo kakvog prolaska kroz medije kada je most onemogućen.
-4.  Selektor režima (`modalityBridgeVisionMode`, pogledajte tabelu ispod) odlučuje o preusmeravanju naspram opisa. Preusmeravanje vraća `modifiedPayload` sa samo zamenjenim `model`-om, plus meta podatke `{ rerouted, fromModel, toModel, imagesKept }`.
-5.  Putanja opisa: ograničava slike na `maxImages`, sastavlja prompt svestan zadatka, konsultuje keš opisa, poziva vizuelni model **paralelno** (`Promise.allSettled`), i ubacuje tekstualne delove `[Image N]: <description>` na njihovo mesto. Neuspeli opis daje `null` i originalni deo slike je **sačuvan** (#4012) — osim na putanji kombinovanog opisa kada je svaki opis neuspešan, gde potvrđeni uzvodni sistem bez vizije dobija `(nedostupno — nije povezan provajder sa podrškom za viziju)` zamenski tekst umesto toga (#8430).
-6.  Vraća `modifiedPayload` + meta podatke (`imagesProcessed`, `descriptions`, `processingTimeMs`, `visionModel`).
+1. Прескочите ако циљни модел већ подржава визуелни садржај (осим ако се налази на
+   листи модела за које је мост принудно омогућен `isVisionBridgeForcedModel`).
+2. Издвојите делове са сликама помоћу `extractImageParts(messages)`
+   (`visionBridgeHelpers.ts`), који делегира **обједињеном детектору медија**
+   `detectMediaParts()` у `open-sse/utils/mediaParts.ts` — једином
+   извору истине који се дели са филтером компатибилности комбинација.
+   Издвајање је ограничено листом дозвољених делова највишег нивоа чије облике
+   `replaceImageParts` може поново да уметне (уговор издвајање↔замена): OpenAI
+   `image_url`, Anthropic base64 `source.type:"base64"`, Anthropic URL
+   `source.type:"url"` и Responses API `input_image`. Угнежђена поклапања и
+   облици који служе само као индикатори припадају филтеру комбинација и никада се не издвајају.
+   Прескочите ако ниједан није пронађен.
+3. Разрешите конфигурацију током извршавања помоћу `resolveVisionBridgeRuntimeSettings()`
+   (`src/shared/constants/modalityBridgeDefaults.ts`): нови кључеви подешавања `modalityBridge*`
+   имају предност; застарели кључеви `visionBridge*` остају као **резервна опција током једног
+   циклуса** (период за враћање на претходно стање). Прескочите пре било каквог обиласка медија када је
+   мост онемогућен.
+4. Бирач режима (`modalityBridgeVisionMode`, погледајте табелу испод) одлучује
+   између преусмеравања и описивања. Преусмеравање враћа `modifiedPayload` у којем је замењен само
+   `model`, уз метаподатке `{ rerouted, fromModel, toModel, imagesKept }`.
+5. Путања описивања: ограничите број слика на `maxImages`, саставите упит прилагођен задатку,
+   проверите кеш описа, позовите модел за визуелни садржај **паралелно**
+   (`Promise.allSettled`) и уместо слика уметните текстуалне делове `[Image N]: <description>`.
+   Неуспело описивање даје `null`, а оригинални део са сликом се
+   **чува** (#4012) — осим на путањи описивања комбинације када су сва
+   описивања неуспешна, где потврђено узводно одредиште без подршке за визуелни садржај добија
+   заменски текст `(unavailable — no vision-capable provider connected)` (#8430).
+6. Вратите `modifiedPayload` + метаподатке (`imagesProcessed`, `descriptions`,
+   `processingTimeMs`, `visionModel`).
 
-#### Selektor režima (`modalityBridgeVisionMode`)
+#### Бирач режима (`modalityBridgeVisionMode`)
 
-| Režim      | Podrazumevano | Ponašanje                                                                                                                                                                                                                                                                     |
-| ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto`     | ✔             | Nasleđena heuristika, netaknuta (#6640/#7204): modeli koji nisu kombinovani/`auto/` preusmeravaju se na najbolji vizuelni model, osim ako originalni model već ima upotrebljive akreditive (tada opisuje); kombinovani ciljevi uvek opisuju.                                  |
-| `describe` |               | Uvek opisuje — blok za preusmeravanje se u potpunosti preskače; korisnikov izabrani model uvek odgovara.                                                                                                                                                                      |
-| `reroute`  |               | Forsirano preusmeravanje: zaštita modela sa akreditivima se zaobilazi. Zaštita akreditiva **cilja** preusmeravanja i dalje važi — kada ne postoji upotrebljiv vizuelni cilj, zahtev prolazi do opisa tako da sirove slike nikada ne stignu do pozadine samo za tekst (#8430). |
+| Режим      | Подразумевано | Понашање                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto`     | ✔             | Застарела хеуристика, непромењена (#6640/#7204): модели који нису комбинације или су `auto/` преусмеравају се на најбољи модел за визуелни садржај, осим ако оригинални модел већ има употребљиве акредитиве (тада се описује); циљеви комбинација се увек описују.                                                                    |
+| `describe` |               | Увек описуј — блок за преусмеравање се у потпуности прескаче; модел који је корисник изабрао увек даје одговор.                                                                                                                                                                                                                        |
+| `reroute`  |               | Принудно преусмеравање: заобилази се заштита која задржава модел са акредитивима. Заштита акредитива за **циљ** преусмеравања и даље важи — када не постоји употребљив циљни модел за визуелни садржај, захтев прелази на описивање како необрађене слике никада не би стигле до позадинског система који подржава само текст (#8430). |
 
-Forsirani režimi se kratko spajaju **pre** nego što se pokrene auto heuristika; `auto` ponašanje je bajt-identično zaštitnom mehanizmu pre PR-1.
+Принудни режими прекидају обраду **пре** покретања аутоматске хеуристике; понашање режима `auto`
+идентично је, на нивоу бајтова, заштитном механизму пре PR-1.
 
-#### Prompt za opis svestan zadatka (`modalityBridgeVisionTaskAware`)
+#### Опсег API кључа (`visionBridgeKeyScope.ts`)
 
-Podrazumevano **true**. `composeVisionPrompt()` (`visionBridgeHelpers.ts`) dodaje tekst **poslednje korisničke poruke** (skraćene na 500 znakova) osnovnom promptu za opis, usmeravajući opis ka onome što je korisnik zaista pitao (codex-vision-proxy obrazac) i tražeći od vizuelnog modela da transkribuje vidljivi tekst. Kada je zastavica isključena — ili nema korisničkog teksta — koristi se nepromenjeni osnovni prompt.
+Када API кључ позиваоца ограничава `allowedConnections`, скупове квота
+(`allowedQuotas`) или моделе (`allowedModels` / `blockedModels` /
+`modelAccessMode: "restricted"` / `disableNonPublicModels`), мост бира само
+моделе за преусмеравање и описивање које кључ сме да користи, на везама које кључ сме
+да користи. Позив за описивање затим увек пролази кроз OmniRoute самопетљу са
+заглављем `x-omniroute-self-loop-key-id`, тако да пријемни захтев за ћаскање
+поново примењује смернице тог кључа за везе и моделе. `enforceApiKeyPolicy()`
+уважава то заглавље само заједно са токеном носиоца самопетље, тако да оно може само
+да сузи приступ, док се идентификатор који се не може разрешити одбија.
 
-Sopstveni OpenAI-kompatibilni zahtev petlje za opisivanje (`callVisionModelSingle()`
-u `visionBridgeHelpers.ts`) uvek traži `image_url.detail: "high"` —
-bezuslovno, za svakog pozivaoca/provajdera, bez obzira na signal klijenta.
-Uzorkovanje sa niskim detaljima smanjuje tačnost OCR-a za tačno zadatak transkripcije teksta
-koji ovaj prompt traži, tako da sam poziv za opisivanje uvek traži visoke detalje
-bez obzira na nivo detalja koji je koristio originalni dolazni zahtev. Ovo
-utiče samo na telo internog zahteva za opisivanje; ne menja način na koji
-OmniRoute prosleđuje `image_url.detail` pozivaoca u primarnom zahtevu —
-ta podrazumevana vrednost se primenjuje odvojeno, i samo za detektovane OpenCode klijente, u
-`defaultImageDetail()` (`open-sse/handlers/chatCore/upstreamBody.ts`).
-Grana Anthropic wire-formata petlje za opisivanje nema polje `detail`
-i na nju ne utiče nijedna podrazumevana vrednost.
+Ако за кључ није дозвољен ниједан модел за визуелни садржај, путања описивања се повлачи и
+захтев пролази непромењен, што представља исто понашање отвореног пропуштања у случају грешке као код онемогућеног
+заштитног механизма (метаподаци `{ skipped: true, reason: "no_permitted_vision_model" }`).
+Захтеви без кључа и кључеви без ових ограничења понашају се потпуно исто као
+раније.
 
-#### Ograničenje izlaza opisa (`modalityBridgeVisionMaxChars`)
+#### Упит за описивање прилагођен задатку (`modalityBridgeVisionTaskAware`)
 
-| Ključ                          | Podrazumevano | Opseg             |
+Подразумевано **true**. `composeVisionPrompt()` (`visionBridgeHelpers.ts`) додаје
+текст **последње корисничке поруке** (скраћен на 500 знакова) основном
+упиту за описивање, усмеравајући опис ка ономе што је корисник заиста тражио
+(образац codex-vision-proxy) и тражећи од модела за вид да транскрибује видљиви
+текст. Када је заставица искључена — или нема корисничког текста — основни упит
+се користи без измена.
+
+Сопствени OpenAI-компатибилни захтев самопетље за описивање (`callVisionModelSingle()`
+у `visionBridgeHelpers.ts`) увек захтева `image_url.detail: "high"` —
+безусловно, за сваког позиваоца/добављача, без условљавања било каквим сигналом
+клијента. Узорковање са ниским нивоом детаља умањује OCR прецизност управо за
+задатак транскрипције текста који овај упит захтева, па сам позив за описивање
+увек захтева висок ниво детаља, без обзира на ниво детаља коришћен у изворном
+долазном захтеву. Ово утиче само на тело интерног захтева за описивање; не мења
+начин на који OmniRoute прослеђује позиваочев сопствени `image_url.detail` у
+примарном захтеву — та подразумевана вредност примењује се засебно, и то само
+за откривене OpenCode клијенте, у `defaultImageDetail()`
+(`open-sse/handlers/chatCore/upstreamBody.ts`). Грана самопетље за описивање са
+Anthropic жичаним форматом нема поље `detail` и на њу не утиче ниједна од ових
+подразумеваних вредности.
+
+#### Ограничење излаза описа (`modalityBridgeVisionMaxChars`)
+
+| Кључ                           | Подразумевано | Опсег             |
 | ------------------------------ | ------------- | ----------------- |
-| `modalityBridgeVisionMaxChars` | `0`           | `0` ili 100–50000 |
+| `modalityBridgeVisionMaxChars` | `0`           | `0` или 100–50000 |
 
-`0` (podrazumevano) znači **bez ograničenja** — opis koji vraća
-`callVisionModel()` se prosleđuje neizmenjen, čuvajući postojeće
-ponašanje. Bilo koja vrednost u opsegu 100–50000 skraćuje opis sa
-sufiksom `…` pre nego što se ponovo spoji kao `[Image N]: <description>`
-(`VisionBridgeGuardrail.preCall()` u `src/lib/guardrails/visionBridge.ts`).
-Povećajte ovo za OCR zadatke sa mnogo detalja gde je nizvodnom modelu potrebna
-potpuna transkripcija; smanjite ga da biste ograničili upotrebu tokena na brbljivim vizuelnim modelima.
-Polje na kontrolnoj tabli se nalazi na naprednom panelu kartice Vision
-(`modality-bridge-max-chars` u `ModalityBridgeVisionTab.tsx`) i ograničava svaku
-vrednost između 1 i 99 do donje granice od 100, dok eksplicitnu `0`
-ostavlja netaknutom — `0` je validna Zod vrednost sama po sebi
-(`z.union([z.literal(0), z.number().int().min(100).max(50000)])`), a ne samo
-"nepostavljena" podrazumevana vrednost.
+`0` (подразумевано) значи **без ограничења** — опис који врати
+`callVisionModel()` прослеђује се без измена, чиме се задржава постојеће
+понашање. Свака вредност у опсегу 100–50000 скраћује опис и додаје суфикс
+`…` пре него што се он уметне назад као `[Image N]: <description>`
+(`VisionBridgeGuardrail.preCall()` у `src/lib/guardrails/visionBridge.ts`).
+Повећајте ову вредност за OCR задатке са много детаља, где је низводном моделу
+потребна потпуна транскрипција; смањите је да бисте ограничили употребу токена
+код опширних модела за вид. Поље на контролној табли налази се у панелу
+Advanced на картици Vision (`modality-bridge-max-chars` у
+`ModalityBridgeVisionTab.tsx`) и сваку вредност између 1 и 99 подиже на доњу
+границу од 100, док експлицитну вредност `0` оставља нетакнутом — `0` је сама
+по себи важећа Zod вредност
+(`z.union([z.literal(0), z.number().int().min(100).max(50000)])`), а не само
+подразумевана вредност за „није постављено“.
 
-#### Keš opisa (`modalityBridge/bridgeCache.ts`)
+#### Кеш описа (`modalityBridge/bridgeCache.ts`)
 
-LRU + TTL keš u memoriji za izlaze opisa, deljen na nivou procesa.
-Ključ = `sha256(imageRef + composedPrompt + configuredBridgeModel)` sa
-okvirom sa prefiksom dužine (bez kolizija granica polja). Komponenta modela je
-**konfigurisani** bridge model, a ne model koji je zapravo odgovorio —
-`callVisionModel` se može interno vratiti na rezervni model, a keširanje po pokušaju bi
-fragmentiralo keš. Neuspešni opisi se nikada ne keširaju. Podešavanja:
+LRU + TTL кеш у меморији за излазе описивања, заједнички за цео процес.
+Кључ = `sha256(imageRef + composedPrompt + configuredBridgeModel)` са
+уоквиривањем префиксом дужине (без колизија граница поља). Компонента модела је
+**конфигурисани** модел моста, а не модел који је стварно одговорио —
+`callVisionModel` може интерно да пређе на резервни модел, а формирање кључа за
+сваки покушај засебно фрагментирало би кеш. Неуспели описи се никада не кеширају.
+Подешавања:
 
-| Ključ                           | Podrazumevano | Opseg   |
+| Кључ                            | Подразумевано | Опсег   |
 | ------------------------------- | ------------- | ------- |
 | `modalityBridgeCacheEnabled`    | `true`        | —       |
 | `modalityBridgeCacheTtlMinutes` | `60`          | 1–1440  |
 | `modalityBridgeCacheMaxEntries` | `200`         | 10–5000 |
 
-#### Normalizacija udaljene slike (opis petlje/base64 preuzimanje)
+#### Нормализација удаљених слика (самопетља за описивање/base64 преузимање)
 
-Kada bridge sam preuzima **udaljenu** sliku — Anthropic self-call za opisivanje i
-konverzija base64 u claude-wire-format
-(`ensureBase64ImagesForClaudeWire`), oba preko
-`fetchRemoteImageAsDataUri()` u `visionBridgeHelpers.ts` — rezultujući URI podataka
-prolazi kroz `normalizeDataUri()`
-(`open-sse/utils/imageNormalize.ts`) pre nego što se ugradi u zahtev vizuelnog modela.
-Prevelike slike se smanjuju na **2048px dugu ivicu** (odgovara
-ograničenju veličine koje OpenAI/Anthropic već primenjuju na strani servera), što smanjuje
-prenos bajtova/kašnjenje bez promene onoga što vizuelni model vidi. Promena veličine
-koristi `sharp`, učitan preko dinamičkog uvoza: na platformi gde njegov izvorni
-binarni fajl ne uspe da se učita, `normalizeDataUri()` **nikada ne baca grešku** —
-vraća se na prosleđivanje originalnih bajtova, tako da putanja za opisivanje/konverziju base64
-uvek nastavlja da radi. Nebajtovi slike (preuzimanje koje nije vratilo
-sliku koja se može dekodirati) se takođe prosleđuju netaknuti. Ova normalizacija je
-ograničena na slike koje bridge preuzima za svoj self-call — nikada se
-ne primenjuje na sirovi payload pozivaoca, u skladu sa
-principom mutacije samo uz opt-in (Tvrdo pravilo #20).
+Када мост сам преузима **удаљену** слику — за Anthropic самопозив за описивање
+и конверзију у base64 за claude-wire-format
+(`ensureBase64ImagesForClaudeWire`), оба преко
+`fetchRemoteImageAsDataUri()` у `visionBridgeHelpers.ts` — добијени URI
+података прослеђује се кроз `normalizeDataUri()`
+(`open-sse/utils/imageNormalize.ts`) пре уграђивања у захтев моделу за вид.
+Превелике слике смањују се тако да **дужа ивица буде 2048px** (у складу са
+ограничењем промене величине које OpenAI/Anthropic већ примењују на страни
+сервера), чиме се смањују број бајтова за отпремање и кашњење, без промене
+онога што модел за вид види. За промену величине користи се `sharp`, учитан
+динамичким увозом: на платформи на којој његова нативна бинарна датотека не
+може да се учита, `normalizeDataUri()` **никада не баца изузетак** — уместо
+тога пропушта оригиналне бајтове без измена, тако да путања
+описивања/base64-конверзије увек наставља да ради. Бајтови који нису слика
+(преузимање које није вратило слику која се може декодирати) такође се
+пропуштају без измена. Ова нормализација ограничена је на слике које мост
+преузима за сопствени самопозив — никада се не примењује на позиваочев
+необрађени садржај који се прослеђује, у складу са принципом измена искључиво
+уз изричито укључивање (Hard Rule #20).
 
-#### Šema podešavanja + migracija
+#### Шема подешавања + миграција
 
-Novi `modalityBridge*` ključevi su Zod-validirani u `updateSettingsSchema`
-(`src/shared/validation/settingsSchemas.ts`): `modalityBridgeVisionEnabled`,
-`modalityBridgeVisionMode`, `modalityBridgeVisionModel`,
-`modalityBridgeVisionTaskAware`, `modalityBridgeVisionPrompt`,
-`modalityBridgeVisionTimeout`, `modalityBridgeVisionMaxImages`,
-`modalityBridgeVisionMaxChars`, trio `modalityBridgeCache*` i
-grupa `modalityBridgeAudio*` koju koristi Audio Bridge. Migracija
-`141_modality_bridge_settings.sql` kopira postojeće stare
-`visionBridge*` vrednosti u odgovarajuće nove ključeve (idempotentno, nikada ne prepisuje
-vrednost `modalityBridge*` koju je postavio operator); stari ključevi ostaju prihvaćeni kao
-rezervni za čitanje tokom jednog ciklusa izdanja.
+Нови `modalityBridge*` кључеви валидирају се помоћу Zod-а у
+`updateSettingsSchema` (`src/shared/validation/settingsSchemas.ts`):
+`modalityBridgeVisionEnabled`, `modalityBridgeVisionMode`,
+`modalityBridgeVisionModel`, `modalityBridgeVisionTaskAware`,
+`modalityBridgeVisionPrompt`, `modalityBridgeVisionTimeout`,
+`modalityBridgeVisionMaxImages`, `modalityBridgeVisionMaxChars`,
+трио `modalityBridgeCache*` и група `modalityBridgeAudio*` коју користи
+Audio Bridge. Миграција `141_modality_bridge_settings.sql` копира постојеће
+застареле `visionBridge*` вредности у одговарајуће нове кључеве (идемпотентно,
+никада не преписује `modalityBridge*` вредност коју је поставио оператер);
+застарели кључеви остају прихваћени као резервна опција при читању током једног
+циклуса издања.
 
-#### Zaglavlje transparentnosti + statistika
+#### Заглавље транспарентности + статистика
 
-Odgovori transformisani opisom nose
+Одговори трансформисани описивањем садрже
 `x-omniroute-modality-bridge: image->text;model=<visionModel>;parts=<n>`
-(izgrađeno pomoću `buildModalityBridgeHeader()` u `modalityBridge/bridgeStats.ts`,
-pečatirano pomoću `withModalityBridgeHeader()` u `src/sse/handlers/chatHelpers.ts`).
-Preusmereni zahtevi **ne dobijaju** zaglavlje — payload je netaknut i zamena modela
-je već vidljiva u polju `model` tela odgovora.
+(формира га `buildModalityBridgeHeader()` у `modalityBridge/bridgeStats.ts`,
+а поставља `withModalityBridgeHeader()` у `src/sse/handlers/chatHelpers.ts`).
+Преусмерени захтеви **немају** заглавље — садржај није измењен, а замена модела
+је већ видљива у пољу `model` тела одговора.
 
-`GET /api/modality-bridge/stats` (upravljačka autentifikacija, isti nivo kao
-`GET /api/settings`) vraća brojače u memoriji po modalitetu
+`GET /api/modality-bridge/stats` (управљачка аутентификација, исти ниво као
+`GET /api/settings`) враћа бројаче у меморији за сваки модалитет
 `{ attempts, successes, bridged, cacheHits, failures, totalLatencyMs,
-latencySamples, averageLatencyMs, lastUsedAt }` za `vision`, `audio` i
-`video`. `averageLatencyMs` koristi `latencySamples`, a ne sve pokušaje, kao
-svoj imenilac; operacija bez merenja vremena ne fabrikuje uzorak od nula milisekundi.
-`bridged` ostaje unazad kompatibilan alias za uspešne
-konverzije; neuspešni pokušaji ga ne povećavaju.
-Brojači se resetuju pri ponovnom pokretanju procesa po dizajnu
-(telemetrija, a ne računovodstvo).
+latencySamples, averageLatencyMs, lastUsedAt }` за `vision`, `audio` и
+`video`. `averageLatencyMs` користи `latencySamples`, а не све покушаје, као
+именилац; операција без мерења времена не ствара лажни узорак од нула
+милисекунди. `bridged` остаје уназад компатибилан псеудоним за успешне
+конверзије; неуспели покушаји га не увећавају.
+Бројачи се намерно ресетују при поновном покретању процеса
+(телеметрија, а не књиговодство).
 
-#### Konfiguracija kontrolne table
+#### Конфигурација контролне табле
 
-Namenska stranica kontrolne table je
-`/dashboard/settings/modality-bridge`. Njene URL-adresabilne kartice `Vision`, `Audio`
-i `Video` čuvaju parametre upita prilikom promene vrednosti `tab`.
-Kartica Vision izlaže omogućavanje, režim, izbor modela (uključujući automatski
-podrazumevani), promptovanje svesno zadatka, napredna ograničenja za timeout/sliku/dužinu opisa/keš,
-brojače izvršavanja i zaštićeni primer zahteva. Kartica Audio je takođe aktivna: izlaže
-omogućavanje, birač modela samo za STT sa opcijom Auto, ograničenja za timeout/max-clip, audio
-brojače i `input_audio` test uzorka. Kartica Video je funkcionalna: izveštava
-o stanju izvršavanja FFmpeg/ffprobe — jedno od četiri eksplicitna UI stanja (`unknown` dok
-je provera u toku ili nije mogla da se završi, `restricted` na hostu kontrolne table koji nije loopback
-gde se provera preskače na strani klijenta, `unavailable` nakon provere
-i potvrde da nedostaje, ili `available` sa verzijama FFmpeg/ffprobe) — čuva
-ograničenja za omogućavanje/model/frejm/video/timeout, filtrira birač modela na modele sposobne za viziju
-i izlaže video brojače.
+Наменска страница контролне табле је
+`/dashboard/settings/modality-bridge`. Њене картице `Vision`, `Audio` и
+`Video`, којима се може приступити преко URL-а, задржавају параметре упита при
+промени вредности `tab`. Картица Vision омогућава укључивање, избор режима и
+модела (укључујући аутоматски подразумевани избор), упите прилагођене задатку,
+напредна ограничења за временско ограничење, слику, дужину описа и кеш,
+бројаче током извршавања и заштићени пробни захтев. Картица Audio је такође
+активна: омогућава укључивање, избор искључиво STT модела са опцијом Auto,
+ограничења временског интервала и максималног трајања снимка, бројаче звука и
+пробни тест `input_audio`. Картица Video је функционална: приказује стање
+FFmpeg/ffprobe окружења током извршавања — једно од четири изричита стања
+корисничког интерфејса (`unknown` док је провера у току или није могла да се
+заврши, `restricted` на хосту контролне табле који није loopback, где се провера
+прескаче на клијентској страни, `unavailable` након провере и потврде да
+недостаје или `available` са верзијама FFmpeg/ffprobe) — трајно чува
+ограничења за укључивање, модел, кадрове, видео и временски интервал, филтрира
+избор модела само на моделе који подржавају вид и приказује бројаче видеа.
 
-Nekadašnja kartica Vision Bridge pod AI podešavanjima je link za kompatibilnost ka
-novoj stranici; ona više ne poseduje drugu kopiju obrasca. Media Providers takođe
-povezuje Image-to-Text i Speech-to-Text radne tokove sa odgovarajućim karticama Modality
-Bridge-a, bez uklanjanja postojećeg Speech-to-Text playground-a.
+Претходна картица Vision Bridge у подешавањима вештачке интелигенције сада је
+веза ради компатибилности ка новој страници; више не садржи другу копију
+обрасца. Media Providers такође повезује токове рада Image-to-Text и
+Speech-to-Text са одговарајућим картицама Modality Bridge, без уклањања
+постојећег Speech-to-Text окружења за испробавање.
 
-**Zaobilaženje prijema self-loop-a:** kada poziv `describe` prolazi kroz OmniRoute-ov
-sopstveni `/v1` self-loop (nestandardni model provajdera), podzahtev šalje
-`x-omniroute-admission-bypass: internal` i autentifikuje se sa rešenim
-self-loop akreditivom — lokalnim `sk_omniroute` sentinelom u lokalnom režimu, ili
-operatorom konfigurisanim `OMNIROUTE_API_KEY` / `ROUTER_API_KEY` env ključem (#1350) tako
-da `REQUIRE_API_KEY=true` implementacije i dalje mogu da izvrše poziv `describe`.
-Zaobilaženje se poštuje samo za te tačne akreditive, tako da eksterni klijenti ne mogu
-koristiti zaglavlje za preskakanje prijema.
+**Заобилажење контроле приступа за самопетљу:** када се позив за описивање
+усмерава кроз сопствену `/v1` самопетљу OmniRoute-а (нестандардни модел
+добављача), подзахтев шаље `x-omniroute-admission-bypass: internal` и
+аутентификује се разрешеним акредитивом самопетље — локалном контролном
+вредношћу `sk_omniroute` у локалном режиму или кључем окружења
+`OMNIROUTE_API_KEY` / `ROUTER_API_KEY` који је конфигурисао оператер (#1350),
+тако да примене са `REQUIRE_API_KEY=true` и даље могу да извршавају позив за
+описивање. Заобилажење се прихвата само за те тачне акредитиве, тако да спољни
+клијенти не могу да користе заглавље како би прескочили контролу приступа.
 
-Stara podrazumevana podešavanja nalaze se u `src/shared/constants/visionBridgeDefaults.ts`;
-nova podrazumevana podešavanja za režim/svesnost zadatka/keš i rešavač podešavanja nalaze se u
-`src/shared/constants/modalityBridgeDefaults.ts`. Zaštitna ograda izlaže `deps`
-opciju konstruktora tako da testovi mogu da ubrizgaju lažne implementacije `getSettings`
-i `callVisionModel`.
+Застареле подразумеване вредности налазе се у
+`src/shared/constants/visionBridgeDefaults.ts`; нове подразумеване вредности за
+режим, прилагођавање задатку и кеш, као и разрешавач подешавања, налазе се у
+`src/shared/constants/modalityBridgeDefaults.ts`. Заштитни механизам излаже
+опцију конструктора `deps` како би тестови могли да убаце лажне имплементације
+`getSettings` и `callVisionModel`.
 
-### Audio Bridge (`audioBridge.ts`) — Modality Bridge PR-3
+### Аудио-мост (`audioBridge.ts`) — Modality Bridge PR-3
 
-Presreće zahteve za ćaskanje koji sadrže audio pre nego što stignu do cilja za koji se ne zna
-da prihvata audio ulaz. Nikada ne preusmerava zahtev za ćaskanje: audio delovi se
-transkribuju putem postojećeg multipart endpoint-a kompatibilnog sa OpenAI-jem, a izabrani
-model za ćaskanje nastavlja sa tekstualnim transkriptima.
+Пресреће захтеве за ћаскање који садрже звук пре него што стигну до циља за
+који није познато да прихвата аудио-улаз. Никада не преусмерава захтев за
+ћаскање: аудио-делови се транскрибују преко постојеће multipart крајње тачке
+компатибилне са OpenAI-јем, а изабрани модел за ћаскање наставља рад са
+текстуалним транскриптима.
 
-Tok:
+Ток:
 
-1.  Rešava `supportsAudio` putem `getResolvedModelCapabilities()`. Eksplicitni
-    metapodaci registra provajdera pobeđuju, zatim statički metapodaci modela, pa sinhronizovani
-    `modalities_input`. Deklarisana ulazna lista bez `audio` je `false`; bez
-    dokaza o sposobnosti ostaje `null`. I `false` i `null` aktiviraju
-    konzervativni most, dok `true` ga zaobilazi.
-2.  Rešava `modalityBridgeAudio*` podešavanja i izdvaja spojive audio delove najvišeg
-    nivoa iz svake poruke putem zajedničkog `detectMediaParts()` detektora.
-    Podržani oblici žice su OpenAI `input_audio`, `audio_url` i
-    `source.media_type: "audio/*"`. Ugnježdeni audio se detektuje za rutiranje, ali ga
-    putanja spajanja ne uklanja. Rad je ograničen sa `modalityBridgeAudioMaxClips`;
-    kasniji delovi ostaju netaknuti.
-3.  Poštuje konfigurisani `provider/model`, ili pušta `selectAudioBridgeModel()` da prođe
-    kroz `AUDIO_TRANSCRIPTION_PROVIDERS` u stabilnom redosledu kataloga i izabere prvi
-    model sa upotrebljivim aktivnim akreditivom provajdera.
-4.  `callAudioTranscription()` konvertuje base64/data-URI audio u multipart `file`,
-    ili preuzima udaljeni `audio_url` putem javno-jedinog izlaznog čuvara sa DNS pinning-om
-    i ograničenjem od 25 MB. Zatim POST-uje datoteku i izabrani model na lokalni
-    `/v1/audio/transcriptions` self-loop, autentifikovan sa `resolveSelfLoopBearer()`.
-    Postojeća ruta za transkripciju obavlja normalno pretraživanje akreditiva,
-    rukovanje hlađenjem/ograničenjem stope i dispečiranje provajdera.
-5.  Uspešni pozivi zamenjuju svoje delove sa `[Audio N]: <transcript>`. Pozivi
-    se izvršavaju sa `Promise.allSettled`: pojedinačni neuspeh čuva taj originalni audio
-    deo (ugovor #4012). Ako svi pozivi ne uspeju i dokazano je da cilj
-    `supportsAudio === false`, delovi postaju
-    `[Audio N]: (unavailable — no STT provider connected)` (ugovor #8430). Za
-    nepoznati cilj (`null`), rezultat potpunog neuspeha ostaje netaknut. Dokazani
-    cilj samo za tekst bez upotrebljivog STT akreditiva prima isti eksplicitni stub
-    bez izdavanja mrežnog poziva.
+1. Разрешите `supportsAudio` преко `getResolvedModelCapabilities()`. Предност
+   имају изричити метаподаци регистра добављача, затим статички метаподаци
+   модела, па синхронизовани `modalities_input`. Декларисана листа улаза без
+   `audio` има вредност `false`; ако нема доказа о могућностима, вредност остаје
+   `null`. И `false` и `null` активирају конзервативни мост, док га `true`
+   заобилази.
+2. Разрешите подешавања `modalityBridgeAudio*` и издвојте аудио-делове највишег
+   нивоа који се могу уклонити и уметнути из сваке поруке помоћу дељеног
+   детектора `detectMediaParts()`. Подржани облици преноса су OpenAI
+   `input_audio`, `audio_url` и `source.media_type: "audio/*"`. Угнежђени звук
+   се открива ради усмеравања, али се не уклања путањом за издвајање и уметање.
+   Обим рада је ограничен вредношћу `modalityBridgeAudioMaxClips`; каснији
+   делови остају непромењени.
+3. Поштујте конфигурисани `provider/model` или дозволите да
+   `selectAudioBridgeModel()` прође кроз `AUDIO_TRANSCRIPTION_PROVIDERS`
+   стабилним редоследом каталога и изабере први модел са употребљивим активним
+   акредитивом добављача.
+4. `callAudioTranscription()` претвара base64/data-URI звук у multipart
+   `file` или преузима удаљени `audio_url` преко заштите за искључиво јавни
+   одлазни саобраћај, уз DNS фиксирање и ограничење од 25 MB. Затим POST
+   методом шаље датотеку и изабрани модел локалној самопетљи
+   `/v1/audio/transcriptions`, уз аутентификацију помоћу
+   `resolveSelfLoopBearer()`. Постојећа рута за транскрипцију обавља уобичајено
+   проналажење акредитива, руковање периодом мировања/ограничењем брзине и
+   прослеђивање добављачу.
+5. Успешни позиви замењују своје делове са `[Audio N]: <transcript>`. Позиви
+   се извршавају помоћу `Promise.allSettled`: појединачни неуспех задржава тај
+   оригинални аудио-део (уговор #4012). Ако сви позиви не успеју, а за циљ је
+   доказано `supportsAudio === false`, делови постају
+   `[Audio N]: (unavailable — no STT provider connected)` (уговор #8430). За
+   непознат циљ (`null`), резултат у ком су сви позиви неуспешни остаје
+   непромењен. Циљ за који је доказано да подржава само текст, без употребљивог
+   STT акредитива, добија исти изричити заменски текст без упућивања мрежног
+   позива.
 
-Uspešni transkripti koriste LRU/TTL keš Modality Bridge-a na nivou procesa.
-Ključ kombinuje audio referencu, stabilnu `audio-transcription` oznaku operacije
-i izabrani STT model; neuspesi se nikada ne keširaju. Pokušaji audio zapisa
-ažuriraju zajedničke brojače `bridged`, `cacheHits`, `failures` i `lastUsedAt`.
-Transformisani odgovori nose
-`x-omniroute-modality-bridge: audio->text;model=<sttModel>;parts=<n>`; netaknuti
-zahtevi ne primaju Audio Bridge segment.
+Успешни транскрипти користе LRU/TTL кеш Modality Bridge-а који важи за цео
+процес. Кључ комбинује референцу звука, стабилну ознаку операције
+`audio-transcription` и изабрани STT модел; неуспеси се никада не кеширају.
+Покушаји обраде звука ажурирају дељене бројаче `bridged`, `cacheHits`,
+`failures` и `lastUsedAt`. Трансформисани одговори садрже
+`x-omniroute-modality-bridge: audio->text;model=<sttModel>;parts=<n>`;
+непромењени захтеви не добијају сегмент Аудио-моста.
 
-Podešavanja izvršavanja su podržana bazom podataka i Zod-validirana:
+Подешавања током извршавања чувају се у бази података и проверавају помоћу
+Zod-а:
 
-| Ključ                         | Podrazumevano | Opseg           |
-| ----------------------------- | ------------- | --------------- |
-| `modalityBridgeAudioEnabled`  | `true`        | —               |
-| `modalityBridgeAudioModel`    | `""`          | Auto ili STT ID |
-| `modalityBridgeAudioTimeout`  | `60000`       | 1000–300000     |
-| `modalityBridgeAudioMaxClips` | `3`           | 1–10            |
+| Кључ                          | Подразумевано | Опсег                 |
+| ----------------------------- | ------------- | --------------------- |
+| `modalityBridgeAudioEnabled`  | `true`        | —                     |
+| `modalityBridgeAudioModel`    | `""`          | Аутоматски или STT ID |
+| `modalityBridgeAudioTimeout`  | `60000`       | 1000–300000           |
+| `modalityBridgeAudioMaxClips` | `3`           | 1–10                  |
 
-Zajednički keš ostaje kontrolisan sa `modalityBridgeCacheEnabled`,
-`modalityBridgeCacheTtlMinutes` i `modalityBridgeCacheMaxEntries`.
+Заједнички кеш и даље се контролише помоћу `modalityBridgeCacheEnabled`,
+`modalityBridgeCacheTtlMinutes` и `modalityBridgeCacheMaxEntries`.
 
-### Video Bridge (`videoBridge.ts`, `videoBridgePipeline.ts`)
+### Видео-мост (`videoBridge.ts`, `videoBridgePipeline.ts`)
 
-Presreće video delove najvišeg nivoa u `messages` Chat Completions i `input` API-ja za odgovore pre nego što se pozove cilj bez poznate izvorne video podrške.
-Podržani oblici su `input_video`, `video_url`, `video_source`, HTTPS URL-ovi i `data:video/*;base64,...` URI-ji podataka. Obični nazivi datoteka u tekstu se ne tretiraju kao video.
+Пресреће видео-делове највишег нивоа у `messages` за Chat Completions и у
+`input` за Responses API пре него што се позове циљ за који није позната
+изворна подршка за видео. Подржани облици су `input_video`, `video_url`,
+`video_source`, HTTPS URL-ови и URI-ји података `data:video/*;base64,...`.
+Обични називи датотека у тексту не третирају се као видео.
 
-`VideoBridgeGuardrail.preCall` (`videoBridge.ts`) je zadužen za prolazak zahteva, proveru mogućnosti/politike, agregaciju po zahtevu i sadržaj odgovora.
-Rad po videu — akvizicija, keš celokupnog rezultata, opisivanje sekvence frejmova (koja spaja bilo koji audio transkript koji je deklarisao pozivalac) i metrika/prekid/čišćenje po pokušaju — skriven je iza `processVideoPart` u `videoBridgePipeline.ts`, pozvanog jednom po video delu unutar `preCall` petlje.
-Taj modul takođe definiše eksplicitne granice portova `VideoMediaBrokerPort` (akvizicija bajtova i ekstrakcija uzorkovanih frejmova), `VideoAudioTranscriptionPort` (spajanje audio transkripta koji je deklarisao pozivalac sa uzorkovanim titlovima) i `VideoDrilldownPort` (granica perzistencije za detaljnu analizu frejmova; još uvek nije povezan sa `processVideoPart` — samo zasebna ruta `/api/modality-bridge/video/drilldown` danas upisuje unose za detaljnu analizu).
+`VideoBridgeGuardrail.preCall` (`videoBridge.ts`) управља обиласком захтева,
+провером могућности/смерница, агрегацијом по захтеву и корисним садржајем
+одговора. Обрада сваког видеа — преузимање, кеширање целокупног резултата,
+описивање низа кадрова (које обједињује сваки аудио-транскрипт који је навео
+позивалац) и метрике/прекид/чишћење за сваки покушај — скривена је иза
+`processVideoPart` у `videoBridgePipeline.ts`, који се позива једном за сваки
+видео-део унутар петље функције `preCall`. Тај модул такође дефинише изричите
+границе портова `VideoMediaBrokerPort` (преузимање бајтова и издвајање
+узоркованих кадрова), `VideoAudioTranscriptionPort` (обједињавање
+аудио-транскрипта који је навео позивалац са натписима узоркованих кадрова) и
+`VideoDrilldownPort` (граница перзистенције за детаљну анализу кадрова; још увек
+није повезана са `processVideoPart` — тренутно само засебна рута
+`/api/modality-bridge/video/drilldown` уписује ставке детаљне анализе).
 
-Javna `/v1` putanja zahteva nikada ne uvozi niti poziva podproces. Udaljeni video snimci se preuzimaju sa ograničenjem od 50 MiB; inline base64 video snimci imaju konzervativno ograničenje od 36 MiB dekodiranog po videu, tako da model/poruke/okvirni omotač mogu ostati unutar javnog JSON ograničenja prijema zahteva od 50 MiB. Inline dužina i procene dekodirane veličine se proveravaju pre alokacije. HTTPS je obavezan na početnom udaljenom URL-u i svakom preusmeravanju, koristeći postojeću javnu odlaznu zaštitu sa DNS pinningom. Bajti zatim prelaze tačnu internu `POST /api/modality-bridge/video/extract` brokersku granicu. Ta ruta je i `LOCAL_ONLY` i `SPAWN_CAPABLE`, prihvata samo po-procesno autentifikovan, pouzdan loopback zahtev i nikada ne prihvata URL, putanju datoteke, izvršnu datoteku ili listu argumenata. API pipeline za veličinu tela i inkrementalni čitač tela rukovaoca nezavisno primenjuju ograničenje brokerskog ulaza od 50 MiB. Njegov ograničeni red pokreće jednu ekstrakciju istovremeno, dozvoljava četiri posla na čekanju i ograničava ulaz na čekanju na 100 MiB.
+Јавна путања захтева `/v1` никада не увози нити позива потпроцес. Удаљени
+видео-записи преузимају се уз ограничење од 50 MiB; уграђени base64
+видео-записи имају конзервативно ограничење декодиране величине од 36 MiB по
+видеу, како би омотач модела/порука/уоквиравања могао да остане унутар јавног
+ограничења од 50 MiB за прихватање JSON захтева. Дужина уграђених података и
+процене декодиране величине проверавају се пре алокације. HTTPS је обавезан за
+почетни удаљени URL и свако преусмеравање, уз коришћење постојеће заштите за
+искључиво јавни одлазни саобраћај са DNS фиксирањем. Бајтови затим прелазе
+тачно дефинисану интерну брокерску границу
+`POST /api/modality-bridge/video/extract`. Та рута је истовремено `LOCAL_ONLY`
+и `SPAWN_CAPABLE`, прихвата само аутентификован захтев по процесу преко
+поуздане повратне интерфејсне адресе и никада не прихвата URL, путању система
+датотека, извршну датотеку или листу аргумената. Процес обраде величине тела
+API-ја и инкрементални читач тела у руковаоцу независно примењују ограничење од
+50 MiB за брокерски улаз. Његов ограничени ред обрађује једно издвајање
+истовремено, дозвољава четири посла на чекању и ограничава улазне податке на
+чекању на 100 MiB.
 
-Unutar brokera, `ffprobe` čita privatnu lokalnu datoteku; fiksna lista dozvoljenih formata isključuje formate plejlista i manifesta. Za dozvoljene MOV-familije kontejnera, eksterne MOV reference podataka ostaju podrazumevano onemogućene, a fiksna komanda ih ne omogućava. I `ffprobe` i `ffmpeg` koriste `file`-only protokol belu listu, jednu nit, fiksne nizove argumenata, bez shell-a i izvršne datoteke rešene iz `PATH`. Priloženi tokovi slika (cover streams) nisu kandidati za reprodukciju. Svi tokovi koji se mogu reprodukovati moraju zadovoljiti ograničenja, a eksplicitni podrazumevani tok je preferiran pre determinističkog povratka na najniži indeks. Video snimci su ograničeni na 600 sekundi, 8.192 piksela po dimenziji i 33.554.432 izvornih piksela. FFmpeg uzorkuje 1–16 središnjih JPEG frejmova, smanjuje dužu ivicu na najviše 1.024 piksela bez povećavanja manjih ulaza i nikada ne prima URL. Uzorkovanje je podrazumevano `uniform`. Opcione `scene_aware` i eksperimentalne `segment_aware` politike izvode jedan dodatni fiksni FFmpeg prolaz preko već validiranog lokalnog toka, biraju ograničene `showinfo` vremenske oznake scena i deterministički se vraćaju na iste uniformne središnje tačke u slučaju kvara detektora, isteka vremena, neispravnog izlaza ili praznog skupa kandidata. Režim svesnosti segmenta (segment-aware) alocira središnje uzorke proporcionalno validiranim intervalima scena; dokazi svesnosti segmenta i ponašanje povratka su detaljno opisani u nastavku. Strogo ograničenje od 16 frejmova primenjuje se nakon selekcije u svakoj politici. Kada zahtev svestan scene ima budžet od samo jednog frejma, koristi uniformnu središnju tačku aktivnog celog videa ili prozora fokusa i prijavljuje `policyEffective: uniform`: jedan odabrani frejm scene ne može sačuvati oba temporalna kraja. Pozivalac može opcionalno da obezbedi konačan prozor fokusa (`start`/`end` sekunde); granice su ograničene na trajanje medija, obrnuti ili beskonačni prozori se odbijaju, a sve politike uzorkovanja se izvode samo unutar normalizovanog intervala. Dobijeni prozor je uključen u metapodatke uzorkovanja i u nepouzdani prefiks opisa, tako da nizvodni modeli mogu razlikovati fokusirani isečak od pune vremenske linije.
+Унутар брокера, `ffprobe` чита приватну локалну датотеку; фиксна листа
+дозвољених формата искључује формате листа за репродукцију и манифеста. За
+дозвољене контејнере из породице MOV, спољне MOV референце на податке
+подразумевано остају онемогућене, а фиксна команда не омогућава њихову
+употребу. И `ffprobe` и `ffmpeg` користе листу дозвољених протокола која
+садржи само `file`, једну нит, фиксне низове аргумената, без љуске, а извршне
+датотеке разрешавају се из `PATH`. Токови насловних слика у прилогу нису
+кандидати за репродукцију. Сви токови који се могу репродуковати морају
+задовољавати ограничења, а експлицитни подразумевани ток има предност над
+детерминистичким резервним избором са најнижим индексом. Видео-записи су
+ограничени на 600 секунди, 8.192 пиксела по димензији и 33.554.432 изворна
+пиксела. FFmpeg узоркује 1–16 средишњих JPEG кадрова, смањује дужу ивицу на
+највише 1.024 пиксела без увећавања мањих улаза и никада не добија URL.
+Узорковање је подразумевано `uniform`. Опционалне смернице `scene_aware` и
+експерименталне `segment_aware` обављају један додатни фиксни FFmpeg пролаз
+кроз већ проверени локални ток, бирају ограничене временске ознаке сцена из
+`showinfo` и детерминистички се враћају на исте равномерне средишње тачке у
+случају неуспеха детектора, истека времена, неисправног излаза или празног
+скупа кандидата. Режим који узима у обзир сегменте распоређује узорке
+средишњих тачака пропорционално провереним интервалима сцена; докази засновани
+на сегментима и резервно понашање детаљно су описани у наставку. Чврсто
+ограничење од 16 кадрова примењује се након избора у свакој смерници. Када
+захтев који узима у обзир сцене има буџет од само једног кадра, користи
+равномерну средишњу тачку активног прозора целог видеа или фокуса и пријављује
+`policyEffective: uniform`: један изабрани кадар сцене не може да очува оба
+временска краја. Позивалац опционо може да наведе коначан прозор фокуса
+(`start`/`end` у секундама); границе се ограничавају на трајање медија,
+обрнути или неконачни прозори се одбијају, а све смернице узорковања извршавају
+се само унутар нормализованог интервала. Добијени прозор укључује се у
+метаподатке узорковања и у непоуздани префикс описа, како би модели у наставку
+обраде могли да разликују фокусирани одломак од целе временске линије.
 
-Fokus semantičkih titlova je zasebna, eksplicitna postavka. Podrazumevani `full` režim analize čuva postojeći prompt frejma i nikada ne prosleđuje tekst zahteva modelu titlova. U `focused` režimu, most čita samo najnoviji neprazan `text`/`input_text` koji je autorizovao korisnik iz istog Chat ili Responses kontejnera, normalizuje ga na NFC, sažima kontrolne karaktere i beline, i ograničava ga na 500 Unicode kodnih tačaka. Prazan rezultat se vraća na tačan `full` prompt. Upotrebljiv nagoveštaj se serijalizuje kao JSON u namenskom bloku nepouzdanog korisničkog konteksta i može samo da prioritizuje uočljive detalje; ne može nadjačati zasebno upozorenje protiv praćenja instrukcija vidljivih ili čujnih u medijima. Tekstualni fokus nikada ne zaključuje `start`/`end` niti menja temporalni uzorkivač.
+Семантички фокус натписа представља засебну, експлицитну поставку.
+Подразумевани режим анализе `full` задржава постојећи упит за кадрове и никада
+не прослеђује текст захтева моделу за генерисање натписа. У режиму `focused`,
+мост чита само најновији непразан `text`/`input_text` који је написао корисник
+из истог Chat или Responses контејнера, нормализује га у NFC, сажима контролне
+знакове и размаке и ограничава га на 500 Unicode кодних тачака. Празан резултат
+враћа се на тачан упит режима `full`. Употребљив наговештај серијализује се као
+JSON у наменском блоку непоузданог корисничког контекста и може само да одреди
+приоритет уочљивих детаља; не може да поништи засебно упозорење да се не прате
+упутства која су видљива или чујна у медију. Текстуални фокус никада не
+изводи `start`/`end` нити мења временски узоркивач.
 
-#### FU-07 dokazi strukturnog segmenta
+#### FU-07 структурни докази о сегментима
 
-`segment_aware` koristi jedan ograničeni prolaz pre-analize preko već validiranog lokalnog video toka. Fiksni lanac filtera prvo skalira na najviše 320 piksela širine, detektuje promene scene i zamrznute intervale, zatim uzorkuje na 1 frejm u sekundi za zamućenje, prosečnu lumu i prostorne/temporalne informacije. Prolaz je ograničen na 600 strukturnih uzoraka, jednu FFmpeg/filter nit, iste `file`-only protokole i liste dozvoljenih kontejnera, ograničenje izlaza procesa od 1 MiB i najviše 30 sekundi unutar brokerskog deljenog prekida/roka. Nikada ne prihvata komandu, filter, putanju ili URL iz zahteva.
+`segment_aware` користи један ограничени пролаз претходне анализе над већ валидираним локалним видео-током. Фиксни ланац филтера најпре скалира видео на ширину од највише 320 пиксела, открива промене сцена и замрзнуте интервале, а затим узоркује 1 кадар у секунди ради анализе замућења, просечне луминансе и просторних/временских информација. Пролаз је ограничен на 600 структурних узорака, једну FFmpeg/филтерску нит, исте листе дозвољених протокола — искључиво `file` — и контејнера, ограничење излаза процеса од 1 MiB и највише 30 секунди у оквиру заједничког прекида/рока посредника. Никада не прихвата команду, филтер, путању нити URL из захтева.
 
-Strukturne vrednosti su deterministički dokazi uzorkovanja, a ne semantičko razumevanje videa. One ne izvode subjekte, radnje, natpise, govor ili nameru korisnika. Granice scene i zamrzavanja formiraju segmente; pokrivenost zamrzavanjem, zamućenje, ekspozicija, prostorni detalji i vremenska promena samo utiču na to kako se dodeljuje postojeći budžet od 1–16 okvira. Potpuno zamrznut segment je ograničen na jedan kadar, dok se nezamrznuti segmenti takmiče za preostali budžet. Kada granice nadmaše okvire, zadržava se uniformna pokrivenost vremenske linije, tako da brzi rani rezovi ne mogu sakriti dugi završni segment. Granice scene unutar rezolucije analize od 1 sekunde granice zamrzavanja se spajaju.
+Структурне вредности представљају детерминистичке доказе добијене узорковањем, а не семантичко разумевање видеа. Оне не изводе закључке о субјектима, радњама, натписима, говору нити намери корисника. Границе сцена и замрзавања формирају сегменте; покривеност замрзавањем, замућење, експозиција, просторни детаљи и временске промене утичу само на расподелу постојећег буџета од 1–16 кадрова. Потпуно замрзнут сегмент ограничен је на један кадар, док се незамрзнути сегменти надмећу за преостали буџет. Када има више граница него кадрова, задржава се равномерна покривеност временске линије како брзи рани резови не би могли да сакрију дугачак завршни сегмент. Границе сцена које су унутар резолуције анализе од 1 секунде у односу на границу замрзавања обједињују се.
 
-Nedostajući filteri, loše formirani/prazni dokazi, greška detektora ili vremensko ograničenje pre-analize otkazuju i vraćaju se na tačnu uniformnu politiku srednje tačke. Prekid pozivaoca ili rok brokera ne otkazuje: on prekida podproces u toku, sprečava kasniju ekstrakciju okvira, a privatno privremeno stablo se uklanja u `finally` bloku.
+Недостајући филтери, неисправни/празни докази, грешка детектора или истек ограниченог времена претходне анализе доводе до безбедног преласка на потпуно исту политику равномерних средишњих тачака. Прекид позиваоца или истек рока посредника не доводи до таквог преласка: он прекида активни потпроцес, спречава накнадно издвајање кадрова, а приватно привремено стабло уклања се у `finally`.
 
-`scripts/perf/video-bridge-fu07-eval.ts` generiše determinističke stvarne FFmpeg fiksature za uštede nakon deduplikacije poziva natpisa, alokaciju budžeta za gusti pokret, dokaze o zamućenju/ekspoziciji/SI-TI, brze rezove sa dugim repom i lažne pozitive postepenog bledenja. Beleži vreme pre-analize i, gde je `/usr/bin/time` dostupan, CPU deteta i maksimalni RSS. Njegove provere kvaliteta su samo strukturni orakli. Kvalitet stvarnog modela natpisa ostaje `HOLD` jer ovaj sistem nema ovlašćenu krajnju tačku ili zamrznutog sudiju. Novčane uštede takođe ostaju `HOLD` osim ako `--caption-cost-per-call-usd` ne pruži eksplicitnu pozitivnu procenu po pozivu; skripta nikada ne fabrikuje nijedan rezultat.
+`scripts/perf/video-bridge-fu07-eval.ts` генерише детерминистичке стварне FFmpeg тестне примерке за уштеду позива за генерисање описа након дедупликације, расподелу буџета при густом кретању, доказе о замућењу/експозицији/SI-TI, брзе резове са дугачким завршним делом и лажно позитивне резултате код постепеног затамњења. Бележи протекло време претходне анализе и, када је `/usr/bin/time` доступан, процесорско време подређеног процеса и вршни RSS. Његове провере квалитета представљају само структурна мерила. Квалитет стварног модела за генерисање описа остаје `HOLD` јер овај тестни оквир нема овлашћену крајњу тачку нити фиксирани модел за оцењивање. Новчане уштеде такође остају `HOLD`, осим ако `--caption-cost-per-call-usd` не наведе изричиту позитивну процену трошка по позиву; скрипта никада не измишља ниједан од тих резултата.
 
-Svaki kadar je ograničen na 4 MiB, svi sirovi kadrovi zajedno na 23 MiB, a serijalizovani odgovor brokera na 32 MiB. Privatni privremeni direktorijum se uklanja u `finally` bloku. OmniRoute ne uključuje FFmpeg i ne prihvata prilagođenu putanju izvršne datoteke. Pre natpisa, most primenjuje konzervativni vizuelni prolaz deduplikacije: svaki JPEG se svodi na 16×16 sivi bafer i poredi se samo sa poslednjim zadržanim kadrom. Za traženi budžet natpisa iznad jednog kadra, ekstrakcija obezbeđuje ograničeni bazen kandidata do dvostruko većeg budžeta i nikada više od 16 kadrova. Traženo ograničenje se primenjuje tek nakon deduplikacije, pri čemu se prvi i poslednji odabrani kandidati čuvaju tokom konačnog proređivanja kada je budžet najmanje dva. Verziona `grayscale-16x16-mean-cells-v2` politika koristi veću vrednost srednje luma delte i odnosa ćelija sličica čija je normalizovana delta najmanje 0,05. Prag duplikata je konstanta 0,04, odabrana zbog predvidljivosti, a ne izložena kao postavka vremena izvršavanja. Ovaj sekundarni signal visokog kontrasta čuva male promene pokreta i vidljivog teksta koje poređenje samo po srednjoj vrednosti može sakriti. Greške komparatora ili dekodera otkazuju i zadržavaju pokrivenost. Izlazni metapodaci razdvajaju ekstrahovane kandidate, uspešno korišćene kadrove i vizuelne duplikate koji su odbačeni.
+Сваки кадар ограничен је на 4 MiB, сви необрађени кадрови заједно на 23 MiB, а серијализовани одговор посредника на 32 MiB. Приватни привремени директоријум уклања се у `finally`. OmniRoute не испоручује FFmpeg у пакету и не прихвата прилагођену путању до извршне датотеке. Пре генерисања описа, мост примењује конзервативни пролаз визуелне дедупликације: сваки JPEG своди се на сиви бафер величине 16×16 и пореди само са последњим задржаним кадром. За тражени буџет описа већи од једног кадра, издвајање обезбеђује ограничени скуп кандидата до двоструке величине тог буџета, али никада више од 16 кадрова. Тражено ограничење примењује се тек након дедупликације, при чему се први и последњи изабрани кандидат задржавају током завршног проређивања када је буџет најмање два. Верзионисана политика `grayscale-16x16-mean-cells-v2` користи већу вредност између средње промене луминансе и удела ћелија сличице чија је нормализована разлика најмање 0.05. Праг дупликата је константа 0.04, изабрана ради предвидљивости уместо излагања као подешавања током извршавања. Овај секундарни сигнал високог контраста задржава мала кретања и промене видљивог текста које поређење засновано само на средњој вредности може да прикрије. Грешке компаратора или декодера доводе до безбедног задржавања покривености. Метаподаци излаза одвојено приказују издвојене кандидате, успешно употребљене кадрове и одбачене визуелне дупликате.
 
-Eksplicitno označeni video deo može zahtevati kontakt listu sa vremenskim oznakama. Most gradi JPEG mrežu sa najviše 4 kolone i 16 kadrova. Svaka ćelija od 512 piksela upisuje svoju izvornu vremensku oznaku u donju traku visokog kontrasta, dok iste vremenske oznake ostaju u tekstualnim metapodacima za kasniju asocijaciju i reviziju. Kompletni JPEG ostaje ograničen na 32 MiB. Ako `sharp` ne može da dekodira ili sastavi mrežu, most se vraća na pojedinačne JPEG kadrove; prekid klijenta se i dalje propagira kroz operaciju lista.
+Изричито означени видео-део може да затражи контактни лист са временским ознакама. Мост прави JPEG мрежу са највише 4 колоне и 16 кадрова. Свака ћелија од 512 пиксела утискује временску ознаку извора у доњу траку високог контраста, док исте временске ознаке остају у текстуалним метаподацима ради накнадног повезивања и ревизије. Комплетан JPEG остаје ограничен на 32 MiB. Ако `sharp` не може да декодира или састави мрежу, мост се враћа на појединачне JPEG кадрове; прекид клијента се и даље преноси кроз операцију над контактним листом.
 
-Dokazi o promociji su namerno odvojeni od sintetičkog mikromerila kompozicije. `scripts/perf/video-bridge-contact-sheet-eval.ts` definiše A/B sistem sa verzijom šeme za stvarne OpenAI-kompatibilne modele vida. Meri tokene koje je prijavio provajder, end-to-end latenciju (uključujući kompoziciju lista), broj poziva modela i zadržavanje činjenica definisanih manifestom. Sirovi odgovori modela se ne upisuju u izveštaj; zadržavaju se samo SHA-256 digesti i podudarni ID-ovi činjenica. Sistem ne vrši mrežni ili plaćeni poziv modela osim ako nije prosleđen `--execute-real` i ako su konfigurisani `--model`, `OMNIROUTE_BASE_URL` i `OMNIROUTE_API_KEY`. Bez tog eksplicitnog stvarnog pokretanja, njegova mašinski čitljiva presuda ostaje `HOLD`; sintetička merenja opterećenja/broja poziva sama po sebi nisu dokaz promocije.
+Докази за унапређење намерно су одвојени од синтетичког микротеста перформанси састављања. `scripts/perf/video-bridge-contact-sheet-eval.ts` дефинише A/B тестни оквир са верзионисаном шемом за стварне моделе вида компатибилне са OpenAI-јем. Он мери број токена који пријављује добављач, укупно протекло време од почетка до краја (укључујући састављање контактног листа), број позива модела и задржавање чињеница дефинисаних манифестом. Необрађени одговори модела не уписују се у извештај; задржавају се само SHA-256 сажеци и идентификатори подударних чињеница. Тестни оквир не упућује мрежни нити плаћени позив моделу осим ако је прослеђено `--execute-real` и ако су конфигурисани `--model`, `OMNIROUTE_BASE_URL` и `OMNIROUTE_API_KEY`. Без таквог изричитог стварног покретања, његова машински читљива оцена остаје `HOLD`; сама синтетичка мерења величине садржаја/броја позива нису доказ за унапређење.
 
-Pozivaoci mogu priložiti opcioni `transcript.cues` niz podržanom video delu kada već poseduju usklađen tekst. Svaki znak mora sadržati `text`, konačni `start`/`end` interval unutar ispitivanog trajanja i belu listu `source` (`client`, `embedded` ili `audio-bridge`); `confidence` podrazumevano iznosi `1` i mora ostati između `0` i `1`. Tačni duplikati znakova se spajaju. OmniRoute nikada ne započinje transkripciju iz ovih metapodataka: validirani znakovi se kopiraju u opisani rezultat sa izvorom, pouzdanošću i intervalom, i prikazuju se kao nepouzdana zapažanja pored natpisa okvira. Nevažeći, van opsega ili tekst bez porekla se odbija umesto da se meša u tok natpisa. Polje `source` je trenutno deklarisano od strane pozivaoca, a ne verifikovano od strane servera: OmniRoute primenjuje da vrednost bude jedan od tri dozvoljena niza, ali još uvek kriptografski ne potvrđuje da je `embedded` ili `audio-bridge` oznaka zaista došla iz ekstrakcije u vlasništvu servera. Tretirajte `source` kao nepouzdanu naznaku dok se ta verifikacija ne uspostavi; ne gradite odluke o autorizaciji na njoj.
+Позиваоци могу да приложе опциони низ `transcript.cues` подржаном видео-делу када већ поседују временски усклађен текст. Свака ставка мора да садржи `text`, коначан интервал `start`/`end` унутар утврђеног трајања и `source` са листе дозвољених вредности (`client`, `embedded` или `audio-bridge`); `confidence` подразумевано има вредност `1` и мора остати између `0` и `1`. Потпуно идентичне ставке се обједињују. OmniRoute никада не покреће транскрипцију на основу ових метаподатака: валидиране ставке копирају се у описани резултат заједно са извором, поузданошћу и интервалом и приказују се као непоуздана запажања уз описе кадрова. Неважећи текст, текст ван опсега или текст без података о пореклу одбацује се уместо мешања у ток описа. Поље `source` тренутно декларише позивалац, а сервер га не проверава: OmniRoute проверава да ли је вредност једна од три дозвољене ниске, али још увек криптографски не потврђује да је ознака `embedded` или `audio-bridge` заиста потекла из издвајања којим управља сервер. Сматрајте `source` непоузданим наговештајем док се та провера не имплементира; немојте на њему заснивати одлуке о овлашћењима.
 
-Napredni pozivalac može obezbediti već autorizovanu `audioTranscript` traku za isti video. Spoj fuzije obrađuje vizuelna i audio zapažanja pod jednim rokom i signalom za prekid, raspoređuje ih na zajedničkoj vremenskoj liniji, spaja tačne duplikate i prijavljuje delimičan rezultat kada samo jedna strana uspe. Nevažeći `audioTranscript` se degradira na taj delimični rezultat — vizuelni opis se zadržava, a audio grana beleži sanitizovani kod greške — umesto da se ceo video ne uspe. Dostupnost po grani, delimična zastavica i sanitizovani kodovi grešaka čuvaju se u opisanom rezultatu, u `guardrail` metapodacima (`audioFusionRuns`/`audioFusionPartials`/`audioFusionFailureCodes`), u metapodacima keša rezultata i u brojačima fuzije mosta. Podrazumevana putanja Video Bridge-a ne poziva pretvaranje govora u tekst niti preuzima drugu kopiju medija; bez te eksplicitne trake, ostaje samo video.
+Напредни позивалац може да обезбеди већ ауторизовану `audioTranscript` нумеру
+за исти видео. Спојни слој извршава визуелна и аудио запажања у оквиру
+једног рока и сигнала за прекид, ређа их на заједничкој временској линији, спаја
+потпуно идентичне дупликате и пријављује делимичан резултат када успе само једна
+страна. Неважећи `audioTranscript` деградира се на тај делимичан резултат —
+визуелни опис се задржава, а аудио грана бележи санитизовани кôд грешке —
+уместо да цео видео буде означен као неуспешан. Доступност по грани, ознака
+делимичног резултата и санитизовани кодови грешака чувају се у описаном резултату,
+у метаподацима заштитних механизама (`audioFusionRuns`/`audioFusionPartials`/
+`audioFusionFailureCodes`), у метаподацима кеша резултата и у бројачима спајања
+моста. Подразумевана путања Video Bridge не позива претварање говора у текст
+нити преузима другу копију медија; без те експлицитне нумере остаје ограничена
+само на видео.
 
-**Zadržavanje transkripta (#12150 P1).** Ovo se automatski primenjuje kad god Video Bridge (koji je sam po sebi opt-in) renderuje signal transkripta — ne postoji posebna zastavica za zadržavanje. Kada zahtev renderuje bilo koji signal transkripta (pozivaocem deklarisan `transcript` ili fuzionisani `audioTranscript`), `guardrail` ga označava kao `videoBridgeObserved` i proizvodi redigovanu senku video opisa — identično renderovanje u kojem je telo slobodnog teksta svakog signala zamenjeno sa `[redacted-video-transcript]`, izgrađeno zamenom strukturiranog polja signala pre nego što se string sastavi (nikada parsiranjem spljoštenog teksta, tako da nijedan sadržaj signala — adverzalni ili običan, uključujući tela koja sadrže `]` kao što su `[inaudible]`/`[music]` — ne može preživeti). Telo zahteva u trajnom logu poziva zamenjuje svaki tekstualni deo izveden iz videa tom redigovanom senkom, usklađenom po jednakosti sadržaja; `fullText` sidro se ponovo čita iz završenog `guardrail` paketa pre poziva, tako da se podudaranje i dalje uspešno obavlja nakon što kasniji `chain guardrail`-ovi (maskeri PII i akreditiva, prioriteti 10/95) prepišu tekst opisa na mestu i nakon što `system-prompt`/`handoff`/`memory injection` preoblikuje niz poruka. Telo poslato uzvodno modelu ostaje nepromenjeno. Posmatrani zahtev takođe ne popunjava trajnu memoriju (preskače se ekstrakcija izvedena i iz zahteva i iz odgovora), tako da sopstveni odgovor modela ne može da ponovi tekst transkripta u memoriju.
+**Задржавање транскрипта (#12150 P1).** Ово се аутоматски примењује кад год
+Video Bridge (који је и сам опционалан) прикаже ставку транскрипта — не постоји
+посебна ознака за задржавање. Када захтев прикаже било коју ставку транскрипта
+(`transcript` који је декларисао позивалац или спојени `audioTranscript`),
+заштитни механизам га означава као `videoBridgeObserved` и производи редиговану
+копију описа видеа — идентичан приказ у којем је тело слободног текста сваке
+ставке замењено са `[redacted-video-transcript]`, направљену заменом
+структурираног поља ставке пре састављања ниске (никада рашчлањивањем спљоштеног
+текста, тако да никакав садржај ставке — злонамеран или уобичајен, укључујући
+тела која садрже `]`, као што су `[inaudible]`/`[music]` — не може да остане).
+Сачувано тело захтева у евиденцији позива замењује сваки текстуални део изведен
+из видеа том редигованом копијом, упаривањем по једнакости садржаја; сидро
+`fullText` поново се чита из завршеног садржаја заштитног механизма пре позива,
+тако да упаривање и даље успева након што каснији заштитни механизми у ланцу
+(маскери личних идентификационих података и акредитива, приоритети 10/95)
+препишу текст описа на месту и након што уметање системског упита, примопредаје
+и меморије преобликује низ порука. Тело послато моделу узводно остаје
+непромењено. Посматрани захтев такође не попуњава трајну Меморију (прескаче се
+издвајање и из захтева и из одговора), тако да одговор самог модела не може да
+пренесе текст транскрипта у Меморију.
 
-**Необрађена видео поља (#12430).** Када је мост укључен, а изворна подршка за видео непозната или одсутна, дефинисана поља `transcript`/`audioTranscript` такође активирају `videoBridgeObserved`, чак и после неуспелог описа или достизања ограничења `maxVideos`. `null` и празни низови се рачунају; одсутна поља и метаподаци који нису везани за видео не рачунају се. Сачуване копије скривају ова поља или изостављају захтев, а кешеви/Memory се заобилазе. Подаци послати добављачу остају непромењени.
+**Необрађена видео-поља (#12430).** Када је мост омогућен, а изворна подршка за видео непозната или одсутна, дефинисана поља `transcript`/`audioTranscript` такође активирају `videoBridgeObserved`, чак и након неуспеха описа или ограничења `maxVideos`. `null` и празне ниске се рачунају; одсутна поља и метаподаци који нису видео не рачунају се. Задржане копије редигују ова поља или изостављају захтев, а кешеви/Меморија се заобилазе. Садржај за добављача остаје непромењен.
 
-Dodatne zadržane kopije koriste isti signal posmatranog zahteva. Sirovi snimak klijentskog zahteva pre `guardrail`-a, zahtev u memoriji koji čeka i log ranih odbijenih zahteva strukturno zamenjuju polja transkripta u video delovima; string promptovi sintetizovani fazama `pipeline`-a i `context handoff`-om rediguju se na `sink`-u trajnog tela zahteva. Trajni `video_content_removed` marker čini da se nastavak `previous_response_id` zatvori umesto da rekonstruiše tekst koji je namerno odbačen. Ako posmatrani zahtev izgubi svoju senku redakcije po delovima pre logovanja, ili čak jedna od nekoliko video senki ne uspe da se podudari nakon kasnijih mutacija zahteva, zadržano telo zahteva se u potpunosti izostavlja umesto da se zadrži delimično redigovan transkript.
+Додатне задржане копије користе исти сигнал посматраног захтева. Необрађени
+снимак клијентског захтева пре заштитног механизма, захтев на чекању у меморији
+и евиденција рано одбијеног захтева структурно замењују поља транскрипта у видео
+деловима; ниске упита које синтетишу фазе обраде и примопредаја контекста
+редигују се на одредишту сачуваног тела захтева. Сачувана ознака
+`video_content_removed` чини да наставак преко `previous_response_id` буде
+затворено одбијен, уместо да реконструише текст који је намерно одбачен. Ако
+посматрани захтев изгуби своју копију за редиговање по делу пре евидентирања,
+или ако чак једна од више видео-копија не успе да се упари након каснијих измена
+захтева, задржано тело захтева се у потпуности изоставља уместо да се задржи
+делимично редигован транскрипт.
 
-Za posmatrani zahtev, odgovor modela može citirati bilo koji deo transkripta bez strukturirane granice signala. Njegovo trajno `responseBody` u logu poziva se stoga zamenjuje markerom izostavljanja; detaljan `pipeline` artefakt (koji može uključivati uzvodna/klijentska tela i delove strima) se ne zadržava. Semantički, idempotencijski i keševi za ponavljanje razmišljanja zaobilaze čitanja i pisanja za taj zahtev. Zahtev provajdera i klijentu vidljiv odgovor ostaju nepromenjeni. Rani `keepalive` bajtovi se ispuštaju iz privremenog bafera kada se detaljan artefakt izostavi. Kirovo upozorenje o loše formiranom EventStream-u prijavljuje samo broj bajtova paketa, nikada njegov sadržaj ili sirovu grešku JSON parsera. Ovo ne tvrdi da je svaka nepovezana dijagnostika provajdera/plugina revidirana; šire čišćenje zadržanih `sink`-ova prati se u #11658.
+За посматрани захтев, одговор модела може да цитира било који део
+транскрипта без структуриране границе ставке. Зато се његов сачувани
+`responseBody` у евиденцији позива замењује ознаком изостављања; детаљни
+артефакт обраде (који може да садржи узводна/клијентска тела и делове тока)
+не задржава се. Кешеви семантике, идемпотентности и поновног извођења
+резоновања заобилазе читања и уписе за тај захтев. Захтев добављачу и одговор
+видљив клијенту остају непромењени. Рани бајтови за одржавање везе празне се из
+привременог бафера када се детаљни артефакт изостави. Kiro упозорење о
+неисправном EventStream-у пријављује само број бајтова садржаја, никада његов
+садржај нити необрађену грешку JSON рашчлањивача.
+Овим се не тврди да је свака неповезана дијагностика добављача/прикључка
+ревидирана; шире испитивање одредишта за задржавање прати се у #11658.
 
-Interni `/api/modality-bridge/video/drilldown` životni ciklus je zaseban, `loopback`/token-autentifikovan keš supstrat. Svaka operacija takođe zahteva kanonski neprozirni ID principala. Pre nego što se omogući pozivalac u produkciji, on mora izvesti taj ID iz autentifikovanog `tenant`-a i nikada ne sme proslediti vrednost koju je odabrao klijent. Ključevi keša vezuju tog principala za kanonske ID-ove sesije i video-reference, čuvaju samo njihove SHA-256-izvedene ključeve i ograničavaju i čitanja i brisanja na istog principala. Keš čuva najviše 16 izvedenih JPEG frejmova po unosu, ističe ih nakon deset minuta i podržava ograničena `start`/`end` čitanja ili eksplicitno brisanje sesije.
+Интерни животни циклус `/api/modality-bridge/video/drilldown` представља засебан
+слој кеша аутентификован преко повратне петље/токена. Свака операција такође
+захтева канонски непрозирни ID главног субјекта. Пре него што се продукцијски
+позивалац омогући, мора да изведе тај ID из аутентификованог закупца и никада не
+сме да проследи вредност коју је изабрао клијент. Кључеви кеша везују тог
+главног субјекта за канонске ID-ове сесије и видео-референце, чувају само
+њихове кључеве изведене помоћу SHA-256 и ограничавају и читање и брисање на
+истог главног субјекта. Кеш чува највише 16 изведених JPEG кадрова по уносу,
+истиче их након десет минута и подржава ограничена читања `start`/`end` или
+експлицитно брисање сесије.
 
-Svaki principal je ograničen na 16 unosa i 64 MiB kanonskih JPEG podataka. Ta ograničenja su nezavisna od globalnog plafona od 64 unosa/256 MiB: pritisak kvote principala izbacuje samo najmanje korišćene unose tog principala pre nego što se razmotri globalno LRU izbacivanje. Istekli unosi se uklanjaju iz obračuna principala i globalnog obračuna prilikom aktivnosti keša, dok otkazivanje i neuspeh validacije ne obavezuju delimičnu zamenu.
+Сваки главни субјект ограничен је на 16 уноса и 64 MiB канонских JPEG података.
+Та ограничења су независна од глобалног максимума од 64 уноса/256 MiB: притисак
+квоте главног субјекта уклања само најмање недавно коришћене уносе тог главног
+субјекта пре разматрања глобалног LRU уклањања. Истекли уноси уклањају се и из
+обрачуна по главном субјекту и из глобалног обрачуна током активности кеша, док
+отказивање и неуспех валидације не потврђују делимичну замену.
 
-Keš odbija nekanonski Base64, višak paddinga, ne-JPEG medije, loše formirane ili skraćene JPEG-ove i JPEG-ove koji proizvode upozorenje tokom ograničenog `sharp` dekodiranja cele slike. Svaku prihvaćenu sliku ponovo kodira kao kanonski JPEG, izvodi širinu i visinu iz dekodiranih bajtova umesto da veruje poljima pozivaoca i odbacuje sve preostale poliglotske bajtove umesto da ih zadržava. Samo ograničeni kanonski kompresovani bafer se naplaćuje obe kvote. JSON `wire` limit uključuje Base64 `overhead` za plafon od 32 MiB dekodiranog ulaza. Svaka uskladištena derivacija beleži svoj validirani JPEG format/rezoluciju, politiku uzorkovanja, verziju derivacije, vreme kreiranja, `server-computed content hash` i `hashed parent reference` plus `trusted caller's parent-content hash`. Otkazivanje se proverava između asinhronih faza dekodiranja/heširanja pre atomskog `cache commit`-a.
+Кеш одбацује неканонски Base64, прекомерно допуњавање, медије који нису JPEG, неисправне или
+скраћене JPEG-ове и JPEG-ове који изазову упозорење током ограниченог декодирања целе слике помоћу `sharp`.
+Сваку прихваћену слику поново кодира као канонски JPEG, изводи ширину и висину
+из декодираних бајтова уместо да верује пољима позиваоца и одбацује све накнадне
+полиглотске бајтове уместо да их задржава. Обема квотама обрачунава се само ограничени
+канонски компримовани бафер. Ограничење JSON преноса укључује Base64 проширење за горњу границу
+декодираног улаза од 32 MiB. Свака
+ускладиштена изведеница бележи свој валидирани JPEG формат/резолуцију, политику узорковања,
+верзију извођења, време креирања, хеш садржаја који је израчунао сервер и хеширану референцу
+на родитеља заједно са хешом садржаја родитеља који је доставио поуздани позивалац. Отказивање се проверава
+између асинхроних фаза декодирања/хеширања, пре атомског уписивања у кеш.
 
-Ova tranša još uvek ne povezuje produkcijski producent sa rutom i ne
-pruža izbor varijanti sa više rezolucija. Transparentna putanja zahteva Video Bridge-a
-stoga ne zahteva dodatni rad, dok izvođenje principala vezanog za zakupca i
-kompletan FU-08 životni ciklus sa više rezolucija ostaju eksplicitan naknadni rad,
-a ne dokumentovano kao kompletno ponašanje.
+Ова фаза још увек не повезује продукционог произвођача са рутом и не
+омогућава избор варијанте са више резолуција. Транспарентна путања захтева Video Bridge-а
+стога не уводи додатни рад, док извођење принципала везано за закупца и
+цео FU-08 животни циклус са више резолуција остају изричити накнадни задаци,
+уместо да буду документовани као довршено понашање.
 
-Okviri se sekvencijalno opisuju pomoću konfigurisanog Video modela. Prazno
-Video premošćenje nasleđuje Vision podešavanje; ako su oba prazna, Vision
-auto-ruter bira efektivni model sposoban za viziju. Uspešni opisi
-zamenjuju originalni deo stabilnim prefiksom `[Video description:` koji takođe
-označava tekst kao nepouzdanu opservaciju izvedenu iz medija i govori nizvodnim
-modelima da ne prate uputstva pronađena u medijima. Ključevi keša opisa okvira
-uključuju JPEG bajtove, prompt, vremensku oznaku i efektivni model; keširaju se
-samo uspešni opisi. Unosi u keš zadržavaju stvarni uspešni model producenta,
-uključujući rezervni model; most prijavljuje `mixed` kada su različiti okviri
-proizvedeni od strane različitih modela. Pogodak u kešu ponovo koristi taj
-identitet producenta umesto da ga preimenuje kao traženi plan rutiranja. Keš
-rezultata celog videa je ključan za svaki ulaz koji menja izlaz — prompt,
-efektivni model, politika uzorkovanja, broj okvira, režim semantičke analize,
-SHA-256 otisak normalizovanog nagoveštaja fokusa, prozor fokusa, `transcript`,
-`audioTranscript` i zastavica kontakt-lista — tako da promena bilo koje od tih
-dimenzija rezultira promašajem keša, nikada zastarelom ponovnom upotrebom.
-Verzija politike vizuelne deduplikacije, prag i ograničen broj kandidatskih
-okvira su takođe eksplicitni u ključu keša rezultata i metapodacima; promena
-politike stoga ne može ponovo koristiti zastareli opis celog videa. Metapodaci
-keša rezultata v4 čuvaju režim i otisak, nikada sirovi korisnički zadatak.
-Metapodaci zaštitne ograde prijavljuju i tražene i efektivne režime analize;
-traženi `focused` režim bez upotrebljivog korisničkog teksta prijavljuje se kao
-efektivno `full`.
+Оквири добијају описе редом, помоћу конфигурисаног Video модела. Празно
+Video замењивање наслеђује Vision поставку; ако су оба празна, Vision
+аутоматски рутер бира ефективни модел који подржава вид. Успешни описи
+замењују оригинални део стабилним префиксом `[Video description:`, који такође
+означава текст као непоуздано запажање изведено из медија и налаже низводним
+моделима да не следе упутства пронађена у медију. Кључеви кеша за описе оквира
+укључују JPEG бајтове, упит, временску ознаку и ефективни модел; кеширају се само
+успешни описи. Ставке кеша задржавају стварни модел произвођача који је успешно обавио обраду,
+укључујући резервни модел; мост пријављује `mixed` када су различите оквире
+произвели различити модели. Погодак у кешу поново користи тај идентитет произвођача,
+уместо да му додели ознаку захтеваног плана рутирања. Кеш резултата целог видеа
+кључује се на основу сваког улаза који мења излаз — упита, ефективног
+модела, политике узорковања, броја оквира, режима семантичке анализе, SHA-256
+отиска нормализованог наговештаја фокуса, прозора фокуса, `transcript`,
+`audioTranscript` и ознаке контакт-листа — тако да промена било које од тих
+димензија представља промашај кеша, а никада поновну употребу застарелог резултата. Верзија,
+праг и ограничени број кандидатских оквира политике визуелне дедупликације такође су изричито наведени у
+кључу и метаподацима кеша резултата; промена политике стога не може поново да употреби застарели
+опис целог видеа. Метаподаци кеша резултата v4 чувају режим и
+отисак, али никада необрађени кориснички задатак. Метаподаци заштитних механизама пријављују и
+захтевани и ефективни режим анализе; захтевани режим `focused` без
+употребљивог корисничког текста пријављује се као ефективно `full`.
 
-Zaštitna ograda izdvaja svaki podržani video deo, ali opisuje najviše
-`modalityBridgeVideoMaxVideos`. Za cilj za koji je dokazano da ima
-`supportsVideo === false`, neuspeli i video snimci preko limita postaju
-eksplicitni sigurni tekstualni markeri tako da nijedan sirovi video ne preživi.
-Kada je sposobnost nepoznata, ti delovi ostaju netaknuti. Ciljevi sa
-`supportsVideo === true` zaobilaze most. Signal za prekid klijentskog zahteva
-se propagira kroz preuzimanje, brokerski red, podprocese i pozive za opis;
-prekidi se zaustavljaju između video snimaka i nikada ne otvaraju put sirovim
-medijima.
+Заштитни механизам издваја сваки подржани видео-део, али описује највише
+`modalityBridgeVideoMaxVideos`. За циљ за који је доказано да има
+`supportsVideo === false`, неуспели видео-снимци и они преко ограничења постају изричите безбедне
+текстуалне ознаке, тако да необрађени видео не опстаје. Када је способност непозната, ти делови
+остају нетакнути. Циљеви са `supportsVideo === true` заобилазе мост.
+Сигнал за прекид клијентског захтева преноси се кроз преузимање, ред брокера,
+потпроцесе и позиве за генерисање описа; прекиди заустављају обраду између видео-снимака и никада не пропуштају
+необрађени медиј услед отказа.
 
-Podešavanja izvršavanja su podržana DB-om i Zod-validirana:
+Поставке током извршавања чувају се у бази података и валидирају помоћу Zod-а:
 
-| Key                                 | Default     | Range / behavior                                                                                      |
-| :---------------------------------- | :---------- | :---------------------------------------------------------------------------------------------------- |
-| `modalityBridgeVideoEnabled`        | `false`     | Opciono izvršavanje, opt-in                                                                           |
-| `modalityBridgeVideoAnalysisMode`   | `"full"`    | `full` čuva generičke opise; `focused` koristi ograničen, nepouzdan kontekst najnovijeg korisnika     |
-| `modalityBridgeVideoModel`          | `""`        | Nasleđuje Vision Bridge model                                                                         |
-| `modalityBridgeVideoFrameCount`     | `8`         | 1–16                                                                                                  |
-| `modalityBridgeVideoSamplingPolicy` | `"uniform"` | `uniform`, `scene_aware`, ili proporcionalno `segment_aware`; neuspeh detektora se vraća na `uniform` |
-| `modalityBridgeVideoMaxVideos`      | `1`         | 1–4                                                                                                   |
-| `modalityBridgeVideoTimeout`        | `120000`    | 1000–120000 ms                                                                                        |
+| Кључ                                | Подразумевано | Опсег / понашање                                                                                    |
+| ----------------------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| `modalityBridgeVideoEnabled`        | `false`       | Опционално током извршавања, укључује се изричитим избором                                          |
+| `modalityBridgeVideoAnalysisMode`   | `"full"`      | `full` задржава опште описе; `focused` користи ограничени, непоуздани контекст последњег корисника  |
+| `modalityBridgeVideoModel`          | `""`          | Наслеђује модел Vision Bridge-а                                                                     |
+| `modalityBridgeVideoFrameCount`     | `8`           | 1–16                                                                                                |
+| `modalityBridgeVideoSamplingPolicy` | `"uniform"`   | `uniform`, `scene_aware` или пропорционални `segment_aware`; неуспех детектора прелази на `uniform` |
+| `modalityBridgeVideoMaxVideos`      | `1`           | 1–4                                                                                                 |
+| `modalityBridgeVideoTimeout`        | `120000`      | 1000–120000 ms                                                                                      |
 
-Stare sačuvane vrednosti vremenskog ograničenja videa iznad 120 sekundi se
-ograničavaju na brokerski rok; novi zapisi podešavanja iznad tog limita se
-odbijaju. `GET /api/modality-bridge/video/runtime` zahteva pouzdanu,
-pečatiranu lokalnost povratne sprege pre autentifikacije ili provere
-izvršavanja, a zatim zahteva menadžersku autentifikaciju. Vraća samo
-`available`, sanitizovane FFmpeg/ffprobe verzije i fiksni razlog kada
-izvršavanje nije dostupno. Interna ekstrakciona krajnja tačka nije javni API
-za otpremanje: zasićenje reda vraća `503` plus `Retry-After`, prekid veze
-pozivaoca vraća `499`, a fiksni brokerski rok vraća `504`. Konvertovani
-odgovori dodaju `video->text;model=<visionModel>;parts=<videos>` u centralni
-`x-omniroute-modality-bridge` zaglavlje bez uklanjanja Vision ili Audio
-segmenata.
+Наслеђене трајно сачуване вредности Video временског ограничења изнад 120 секунди ограничавају се на
+рок брокера; нови уписи поставки изнад тог ограничења се одбијају.
+`GET /api/modality-bridge/video/runtime` захтева поуздано означену loopback
+локалност пре аутентификације или испитивања окружења за извршавање, а затим захтева управљачку
+ауторизацију. Враћа само `available`, прочишћене верзије FFmpeg-а/ffprobe-а и фиксни
+разлог када окружење за извршавање није доступно. Интерна крајња тачка за издвајање није
+јавни API за отпремање: засићење реда враћа `503` уз `Retry-After`, прекид везе
+позиваоца враћа `499`, а фиксни рок брокера враћа `504`. Конвертовани одговори додају
+`video->text;model=<visionModel>;parts=<videos>` у централно
+`x-omniroute-modality-bridge` заглавље без уклањања Vision или Audio сегмената.
 
-### PII Masker (`piiMasker.ts`)
+### Маскер података који омогућавају личну идентификацију (`piiMasker.ts`)
 
-Pokreće se na **obe** faze.
+Извршава се у **обе** фазе.
 
-- **`preCall`** klonira payload, prolazi kroz `system`, `messages`, `input` i
-  `prompt` (uključujući stavke običnog stringa) i primenjuje `processPII()`
-  (iz `@/shared/utils/inputSanitizer`) na polja stringa `content`/`text`. Kada
-  je `PII_REDACTION_ENABLED=true`, detektovani PII se rediguje u odlaznom
-  payloadu. Ovo je nezavisno od `INPUT_SANITIZER_MODE` (koji kontroliše samo
-  politiku prompt-injekcije). Kada je redakcija isključena, poziv beleži broj
-  detekcija bez prepisivanja sadržaja.
-- **`postCall`** dubinski klonira odgovor, pokreće `sanitizePIIResponse()` plus
-  masker oblika Responses-API-ja (`maskResponsesOutput` — pokriva
-  `output_text` i `output[].content[].text`). Ako dođe do bilo kakve
-  redakcije, modifikovani odgovor zamenjuje originalni.
+- **`preCall`** клонира корисни садржај, пролази кроз `system`, `messages`, `input` и
+  `prompt` (укључујући ставке које су обични нискови) и примењује `processPII()` (из
+  `@/shared/utils/inputSanitizer`) на поља `content`/`text` типа ниске. Када је
+  `PII_REDACTION_ENABLED=true`, откривени лични подаци се редигују у одлазном
+  корисном садржају. Ово је независно од `INPUT_SANITIZER_MODE` (који управља само
+  политиком за убацивање инструкција у упит). Када је редиговање искључено, позив бележи број
+  детекција без измене садржаја.
+- **`postCall`** дубински клонира одговор, покреће `sanitizePIIResponse()` заједно са
+  маскером за структуру Responses API-ја (`maskResponsesOutput` — обухвата
+  `output_text` и `output[].content[].text`). Ако дође до било каквог редиговања,
+  измењени одговор замењује оригинални.
 
-Zaštitna ograda nikada ne blokira; ona samo anotira (`meta.detections`,
-`meta.redacted`) ili prepisuje.
+Заштитна контрола никада не блокира; она само додаје напомене (`meta.detections`,
+`meta.redacted`) или преписује садржај.
 
-### Prompt Injection (`promptInjection.ts`)
+### Убацивање инструкција у упит (`promptInjection.ts`)
 
-Detektuje adversarijalne strukture u sadržaju koji je dostavio korisnik i
-primenjuje konfigurisanu politiku. Ponašanje je vođeno varijablama okruženja i
-opcijama konstruktora:
+Открива злонамерне структуре у садржају који је доставио корисник и примењује
+конфигурисану политику. Понашање је одређено променљивама окружења и опцијама
+конструктора:
 
-| Postavka        | Env var                                                                                               | Podrazumevano | Efekat                                                                                                                                                                                                        |
-| --------------- | ----------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Omogućeno       | `INPUT_SANITIZER_ENABLED`                                                                             | `true`        | Kada je `false`, zaštitna ograda se kratko spaja.                                                                                                                                                             |
-| Režim           | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE`                                                       | `warn`        | Politika ubrizgavanja: `block`, `warn`, ili `log`. (`redact` je prihvaćen radi kompatibilnosti unazad, ali **ne** uklanja tekst ubrizgavanja; zahtev za prepisivanje PII kontroliše `PII_REDACTION_ENABLED`.) |
-| Prag blokiranja | `blockThreshold` opcija / `INPUT_SANITIZER_BLOCK_THRESHOLD` (alias `INJECTION_GUARD_BLOCK_THRESHOLD`) | `high`        | Minimalna ozbiljnost potrebna za blokiranje. Srednja je samo za posmatranje po podrazumevanoj vrednosti.                                                                                                      |
+| Подешавање     | Променљива окружења                                                                                    | Подразумевано | Ефекат                                                                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Омогућено      | `INPUT_SANITIZER_ENABLED`                                                                              | `true`        | Када је `false`, заштитна контрола одмах прекида обраду.                                                                                                                                                          |
+| Режим          | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE`                                                        | `warn`        | Политика убацивања: `block`, `warn` или `log`. (`redact` је прихваћено ради компатибилности уназад, али **не** уклања текст убацивања; преписивање личних података у захтеву контролише `PII_REDACTION_ENABLED`.) |
+| Праг блокирања | опција `blockThreshold` / `INPUT_SANITIZER_BLOCK_THRESHOLD` (алијас `INJECTION_GUARD_BLOCK_THRESHOLD`) | `high`        | Минимални ниво озбиљности потребан за блокирање. Средњи ниво се подразумевано само надгледа.                                                                                                                      |
 
-**Prioritet režima** (`getMode`): pozivalac `options.mode` →
-`INJECTION_GUARD_MODE` **premošćavanje DB funkcije-zastavice** (Kontrolna tabla → Podešavanja →
-Funkcijske zastavice) → `INJECTION_GUARD_MODE` env → `INPUT_SANITIZER_MODE` env →
-`warn`. Premošćavanje kontrolne table stoga pobeđuje nad env varijablama, tako da UI funkcije-zastavice
-kontroliše pokrenutu zaštitu uživo (bez ponovnog pokretanja). Čitanje baze podataka je sigurno od grešaka:
-ako dođe do greške, zaštita se vraća na ponašanje zasnovano na env varijablama, a kada nije
-postavljeno premošćavanje, ponašanje je identično rešavanju samo putem env varijabli.
+**Приоритет режима** (`getMode`): позиваочева вредност `options.mode` →
+**замена путем заставице функције у бази података** за `INJECTION_GUARD_MODE` (Контролна табла → Подешавања →
+Заставице функција) → променљива окружења `INJECTION_GUARD_MODE` → променљива окружења `INPUT_SANITIZER_MODE` →
+`warn`. Због тога замена преко контролне табле има предност над променљивама окружења, па кориснички интерфејс
+за заставице функција управља активном заштитом у реалном времену (без поновног покретања). Читање из базе података је безбедно у случају грешке:
+ако дође до грешке, заштита се враћа на понашање засновано на променљивама окружења, а када
+замена није подешена, понашање је идентично разрешавању заснованом искључиво на променљивама окружења.
 
-Izvori detekcije:
+Извори детекције:
 
-1. `sanitizeRequest()` iz `@/shared/utils/inputSanitizer` (zajednički skup detektora
-   koji se koristi drugde u cevovodu).
-2. Ugrađeni `DEFAULT_GUARD_PATTERNS` (trenutno `system_override_inline` i
-   `markdown_system_block`, oba `high` ozbiljnosti).
-3. Opcioni `customPatterns` prosleđeni putem opcija konstruktora (stringovi, regex,
-   ili `{ name, pattern, severity }` zapisi).
+1. `sanitizeRequest()` из `@/shared/utils/inputSanitizer` (заједнички скуп детектора
+   који се користи и на другим местима у процесу).
+2. Уграђени `DEFAULT_GUARD_PATTERNS` (тренутно `system_override_inline` и
+   `markdown_system_block`, оба са нивоом озбиљности `high`).
+3. Опциони `customPatterns` прослеђени путем опција конструктора (ниске, регуларни изрази
+   или записи `{ name, pattern, severity }`).
 
-Kada je `mode === "block"` **i** barem jedna detekcija ispunjava prag ozbiljnosti,
-`preCall` vraća `{ block: true, message: "Request rejected:
-suspicious content detected" }`. U `warn`/`log` režimima zaštitna ograda beleži, ali
-dozvoljava poziv. Zajednička pomoćna funkcija `evaluatePromptInjection()` je takođe izvezena
-za pozivaoce koji treba da procene promptove bez prolaska kroz registar.
+Када је `mode === "block"` **и** бар једна детекција достигне праг озбиљности,
+`preCall` враћа `{ block: true, message: "Request rejected:
+suspicious content detected" }`. У режимима `warn`/`log` заштитна контрола бележи догађај, али
+дозвољава позив. Заједничка помоћна функција `evaluatePromptInjection()` се такође извози
+за позиваоце који треба да процене упите без проласка кроз регистар.
 
-**Granica skeniranja (v3.8.20):** detektor pregleda samo **prvih 16 KB**
-spojenog teksta prompta — `MAX_INJECTION_SCAN_BYTES = 16 * 1024` (16 384 bajta) u
-`src/shared/utils/inputSanitizer.ts`. I `detectInjection()` i
-`evaluatePromptInjection()` `slice(0, MAX_INJECTION_SCAN_BYTES)` pre pokretanja
-petlje uzoraka. Direktive za ubrizgavanje se nalaze blizu vrha unosa, tako da ovo
-ograničava CPU/GC regex-a na višekilobajtnim opterećenjima bez slabljenja detekcije (uporedi
+**Ограничење скенирања (v3.8.20):** детектор прегледа само **првих 16 KB**
+спојеног текста упита — `MAX_INJECTION_SCAN_BYTES = 16 * 1024` (16 384 бајта) у
+`src/shared/utils/inputSanitizer.ts`. И `detectInjection()` и
+`evaluatePromptInjection()` примењују `slice(0, MAX_INJECTION_SCAN_BYTES)` пре покретања
+петље образаца. Директиве за убацивање налазе се близу почетка уноса, па се тиме
+ограничава потрошња CPU-а/GC-а за регуларне изразе над корисним садржајима величине више стотина KB без слабљења детекције (уп.
 #3932, #4041).
 
-### Masker akreditiva (`credentialMasker.ts`)
+### Маскер акредитива (`credentialMasker.ts`)
 
-Pokreće se na **obe** faze, poslednji u podrazumevanom lancu (prioritet `95`). Rediguje
-poznate obrasce API ključeva / tajnih tokena iz odlaznog opterećenja (sadržaj poruke,
-argumenti poziva alata, rezultati alata) **i** odgovora provajdera, tako da
-akreditiv zalepljen u prompt (ili vraćen kao rezultat alata) ne procuri
-uzvodnom provajderu ili nazad klijentu.
+Покреће се у **обе** фазе, као последњи у подразумеваном ланцу (приоритет `95`). Редигује
+познате обрасце API кључева / тајних токена из одлазног корисног садржаја (садржаја
+порука, аргумената позива алата, резултата алата) **и** одговора добављача, тако да
+акредитив налепљен у упит (или поновљен у резултату алата) не процури
+до добављача услуге или назад до клијента.
 
-- **Samo opt-in**, ista konvencija kao redigovanje PII (Teško pravilo #20-povezano):
-  onemogućeno osim ako `settings.credentialRedactionEnabled === true` **ili**
-  `CREDENTIAL_REDACTION_ENABLED=true`. Kada je isključeno, zaštitna ograda je no-op —
-  nikada ne blokira i nikada ne prepisuje.
-- `redactCredentials()` prolazi kroz celo stablo opterećenja/odgovora (`walkValue()`,
-  sigurno od zagađenja prototipa, sigurno od ciklusa putem `WeakSet`) i zamenjuje podudaranja sa
-  placeholderom `[REDACTED:<type>]`, klonirajući samo grane koje su se
-  stvarno promenile.
-- `CREDENTIAL_PATTERNS` pokriva ključeve provajdera LLM-a (OpenAI, OpenAI-proj,
-  Anthropic, Google, Hugging Face, Replicate), VCS/SaaS tokene (GitHub, Slack,
-  Linear, Notion, npm, Postman, Discord), ključeve plaćanja (Stripe, Square),
-  ključeve oblaka (AWS pristupni ključ, Twilio, SendGrid, Mailgun), privatne ključeve / JWT-ove,
-  stringove za povezivanje koji sadrže akreditive (`mongodb://user:pass@...`, itd.), i
-  generički obrazac vrednosti zaglavlja `Authorization`/`x-api-key`/`api-key`/`apikey`.
-  Ključevi u obliku zaglavlja (`authorization`, `x-api-key`, `api-key`,
-  `apikey`) se rediguju strukturno (samo vrednost, prefiks šeme kao što je
-  `Bearer `/`Basic ` se čuva) umesto putem generičkog tekstualnog regex-a.
-- Zaštitna ograda nikada ne blokira; samo prepisuje (`modifiedPayload` /
-  `modifiedResponse`) i anotira (`meta.credentialsRedacted`, `meta.count`).
+- **Само уз изричито укључивање**, по истој конвенцији као редиговање података који откривају идентитет (строго правило сродно правилу бр. 20):
+  онемогућено је осим ако је `settings.credentialRedactionEnabled === true` **или**
+  `CREDENTIAL_REDACTION_ENABLED=true`. Када је искључена, ова заштитна мера не ради ништа —
+  никада не блокира нити преправља.
+- `redactCredentials()` обилази цело стабло корисног садржаја/одговора (`walkValue()`,
+  безбедно у погледу загађења прототипа и безбедно за циклусе помоћу `WeakSet`) и замењује подударања
+  чуваром места `[REDACTED:<type>]`, клонирајући само гране које су заиста
+  измењене.
+- `CREDENTIAL_PATTERNS` обухвата кључеве добављача LLM услуга (OpenAI, OpenAI-proj,
+  Anthropic, Google, Hugging Face, Replicate), VCS/SaaS токене (GitHub, Slack,
+  Linear, Notion, npm, Postman, Discord), кључеве за плаћање (Stripe, Square), кључеве
+  услуга у облаку (AWS приступни кључ, Twilio, SendGrid, Mailgun), приватне кључеве / JWT-ове,
+  ниске за повезивање које садрже акредитиве (`mongodb://user:pass@...`, итд.) и
+  општи образац вредности заглавља `Authorization`/`x-api-key`/`api-key`/`apikey`.
+  Кључеви који имају облик заглавља (`authorization`, `x-api-key`, `api-key`,
+  `apikey`) редигују се структурно (само вредност, док се префикс шеме као што је
+  `Bearer `/`Basic ` задржава), уместо помоћу општег регуларног израза за текст.
+- Заштитна мера никада не блокира; она само преправља (`modifiedPayload` /
+  `modifiedResponse`) и додаје напомене (`meta.credentialsRedacted`, `meta.count`).
 
-Regresiona zaštita: `tests/unit/credential-masker-guardrail.test.ts`.
+Заштита од регресије: `tests/unit/credential-masker-guardrail.test.ts`.
 
 ## Основни уговор (`base.ts`)
 

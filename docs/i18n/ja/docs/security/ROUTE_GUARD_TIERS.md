@@ -12,193 +12,205 @@ OmniRoute のすべての管理 API ルートは、3 つの保護階層のいず
 
 ### ティア 1 — LOCAL_ONLY
 
-**適用方法:** `isLocalOnlyPath(path)` → ループバックホストのチェック  
+**適用方法:** `isLocalOnlyPath(path)` → ループバックホストのチェック
 **バイパス:** デフォルトではなし。リクエストに `manage` スコープを持つ有効な
-API キーが含まれている場合に限り、
-`LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` 内のパスに対する限定的な例外あり
-（[manage スコープの例外](#manage-scope-carve-out)を参照）。
+API キーが含まれている場合、`LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` 内のパスに
+限定された例外があります（[管理スコープの例外](#manage-scope-carve-out)を参照）。
 
-これらのルートは、子プロセスを起動するか、ランタイムコードを実行します。
-ループバック以外のトラフィックに公開すると、有効な JWT を入手した攻撃者が
-（たとえば Cloudflared/Ngrok トンネル経由で）プロセスの起動を引き起こせるようになります。
+これらのルートは、子プロセスを生成するか、ランタイムコードを実行します。
+これらを非ループバックトラフィックに公開すると、有効な JWT を取得した攻撃者が
+（たとえば Cloudflared/Ngrok トンネル経由で）プロセス生成をトリガーできるようになります。
 これは既知の CVE クラスです
 （[GHSA-fhh6-4qxv-rpqj](https://github.com/advisories/GHSA-fhh6-4qxv-rpqj)）。
 
-**GHSA-fhh6-4qxv-rpqj とは何か（攻撃クラス）:** 管理/エージェントサーバーが、
-サブプロセス（`npm install`、`node`、ブラウザー、
-プロキシ、`git`、`tar`、…）を起動するエンドポイントを公開します。そのエンドポイントが
-ホスト外部から到達可能な場合（たとえば、運用者が OmniRoute を nginx/Cloudflare/Tailscale
-トンネルの背後に配置し、JWT が漏洩した場合や、認証が誤って構成されていた場合）、
-攻撃者は「API を呼び出す」ことを「ホスト上でコマンドを実行する」こと
-（リモートコード実行）へと変えてしまいます。OmniRoute は、プロセス起動が可能なすべての
-ルートに対して、**認証チェックよりも前に、無条件でループバックホストのチェックを適用**
-することで、これを防ぎます。トンネル経由でトークンが漏洩しても、プロセス起動には
-到達できません。
+**GHSA-fhh6-4qxv-rpqj とは（攻撃クラス）:** 管理/エージェントサーバーが、
+サブプロセス（`npm install`、`node`、ブラウザー、プロキシ、
+`git`、`tar` など）を起動するエンドポイントを公開します。オペレーターが OmniRoute を
+nginx/Cloudflare/Tailscale トンネルの背後に配置し、JWT が漏洩した、または認証が
+正しく設定されていなかったことにより、そのエンドポイントがホスト外部から到達可能になると、
+攻撃者は「API を呼び出す」ことを「ホスト上でコマンドを実行すること」
+（リモートコード実行）に変えてしまいます。OmniRoute は、プロセス生成が可能なすべてのルートで、
+**認証チェックより前に、常にループバックホストのチェックを適用する**ことで、これを防ぎます。
+トンネル経由でトークンが漏洩しても、プロセス生成には到達できません。
 
-**LOCAL_ONLY の完全な一覧。** 正式な情報源は、
+**LOCAL_ONLY の完全なセット。** 正式な情報源は、
 `src/server/authz/routeGuard.ts` 内の
-`LOCAL_ONLY_API_PREFIXES` / `LOCAL_ONLY_API_PATTERNS` です。以下の表は現在の状態を
-反映しています。`check-route-guard-membership` ゲートは、プロセス起動が可能な
-プレフィックス配下にあるすべての `route.ts` を列挙し、いずれかがローカル専用として
-分類されていない場合、CI を失敗させます。
+`LOCAL_ONLY_API_PREFIXES` / `LOCAL_ONLY_API_PATTERNS` です。以下の表は、
+現在の状態を反映しています。`check-route-guard-membership` ゲートは、
+プロセス生成が可能なプレフィックス配下のすべての `route.ts` を列挙し、
+いずれかがローカル専用として分類されていない場合、CI を失敗させます。
 
-| プレフィックス / パターン                                                                                | ローカル専用である理由                                                                                                          |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/mcp/`                                                                                              | MCP サーバー — stdio ブリッジと SSE ハンドラーを起動                                                                            |
-| `/api/cli-tools/runtime/`                                                                                | CLI ツールランタイム — 任意のプラグインコードを実行                                                                             |
-| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | ホスト上のツールバイナリや設定にアクセスできる、ツールごとの設定書き込み機能                                                    |
-| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | 上記 6 つの関連ツールと同じ `getCliRuntimeStatus()` によるプロセス起動（GHSA-35fw-cv32-2373）                                   |
-| `/api/cli-tools/{all-statuses,status,detect}`                                                            | CLI インベントリプローブ — ツールごとに `command -v` / `--version` を起動（GHSA-35fw-cv32-2373）                                |
-| `/api/cli-tools/antigravity-mitm`                                                                        | Antigravity MITM プロキシ制御（システムプロキシを起動または指定）                                                               |
-| `/api/modality-bridge/video/`                                                                            | 信頼済みループバックに厳格に限定された Video Bridge ランタイムプローブおよび内部抽出ブリッジ                                    |
-| `/api/services/`                                                                                         | 組み込みサービス（9Router / CLIProxy / Bifrost / Mux / Dario）— `npm install` とプロセス起動                                    |
-| `/dashboard/providers/services/`                                                                         | 組み込みサービスの UI へのリバースプロキシ                                                                                      |
-| `/api/tunnels/cloudflared`                                                                               | cloudflared バイナリをインストールして起動                                                                                      |
-| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | ホスト上で tailscaled をインストールまたは制御                                                                                  |
-| `/api/copilot/`                                                                                          | 認証なしの LLM ドライバー — デフォルトでは CLI 専用                                                                             |
-| `/api/tools/agent-bridge/`                                                                               | AgentBridge — MITM サーバーを起動し、DNS を変更                                                                                 |
-| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — http-proxy リスナーとシステムプロキシ                                                                       |
-| `/api/settings/mitm`                                                                                     | MITM インターセプトを有効化（システムレベルのプロキシ状態）                                                                     |
-| `/api/issue-agent/`                                                                                      | Issue エージェント — リポジトリに対してローカルツールを起動                                                                     |
-| `/api/plugins/`, `/api/plugins`                                                                          | プラグイン — `worker_threads` と `child_process` を介して読み込み、実行                                                         |
-| `/api/middleware/`                                                                                       | ユーザーミドルウェア — オペレーターコードをプロセス内で読み込み、実行                                                           |
-| `/api/system/version`                                                                                    | 自動更新（POST のみ。GET/HEAD/OPTIONS は対象外）— `git checkout` と `npm install` を起動                                        |
-| `/api/db-backups/exportAll`                                                                              | エクスポートアーカイブ作成のために `tar` を起動                                                                                 |
-| `/api/local/`                                                                                            | ワンクリックのローカルランチャー（現在は Redis）— podman/docker を起動                                                          |
-| `/api/headroom/start`, `/api/headroom/stop`                                                              | Headroom プロキシのライフサイクル — python CLI を起動 / PID にシグナルを送信                                                    |
-| `/api/jobs`, `/api/jobs/`                                                                                | ジョブランナー制御 — スケジュールされたホスト側の処理を実行                                                                     |
-| `/api/oauth/cursor/auto-import`                                                                          | 認証情報をインポートする前に `execFile("which", ["cursor"])` を実行                                                             |
-| `/api/oauth/kiro/auto-import`                                                                            | ホストから Kiro CLI の認証情報ファイルを読み取り                                                                                |
-| `/api/skills/collect/`                                                                                   | スキル収集 — ローカルツールを検出、インストール                                                                                 |
-| `/api/skills/install`, `/api/skills/executions`                                                          | スキルハンドラーの登録と実行 — サンドボックスコンテナの起動に到達可能（GHSA-jx89）                                              |
-| `/api/discovery/`                                                                                        | ローカルネットワーク / プロバイダーの検出プローブ                                                                               |
-| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | 対話型ログイン用にヘッドフルブラウザと VNC セッションを起動します                                                               |
-| `/api/acp/agents`                                                                                        | ACP — ローカル CLI エージェントバイナリを検出して起動します                                                                     |
-| `/api/resilience/connections`                                                                            | アカウントごとのレジリエンス JSON（クールダウン、ブレーカー、ロックアウト）。ダッシュボード HTML はローカル専用ではありません。 |
-| `/api/providers/cursor/agent-availability`                                                               | ダッシュボードのインストール促進チェック — `cursor-agent status --format json` を起動します                                     |
-| `/api/providers/{id}/login`（正規表現）                                                                  | Web Cookie ログイン用にヘッドフル Playwright Chromium を起動します                                                              |
-| `/api/providers/volcengine-plan/connect`（正規表現）                                                     | 手動のヘッドフルフローとセッションベースの電話/SMS 自動ログイン（Playwright を起動）                                            |
-| `/api/providers/{id}/refresh-cursor`（正規表現）                                                         | Cursor セッションの手動更新 — `cursor-agent` に更新を促します                                                                   |
-| `/api/providers/{id}/chatgpt-web-codex-doctor`（正規表現）                                               | ローカルの Codex CLI インストールを診断します（バイナリを起動）                                                                 |
+| プレフィックス / パターン                                                                                | ローカル専用である理由                                                                                                            |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/mcp/`                                                                                              | MCP サーバー — stdio ブリッジと SSE ハンドラーを生成                                                                              |
+| `/api/cli-tools/runtime/`                                                                                | CLI ツールランタイム — 任意のプラグインコードを実行                                                                               |
+| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | ホスト上のツールバイナリや設定にアクセスできる、ツールごとの設定書き込み機能                                                      |
+| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | 上記 6 ツールと同じ `getCliRuntimeStatus()` によるプロセス生成（GHSA-35fw-cv32-2373）                                             |
+| `/api/cli-tools/{all-statuses,status,detect}`                                                            | CLI インベントリプローブ — ツールごとに `command -v` / `--version` を生成（GHSA-35fw-cv32-2373）                                  |
+| `/api/cli-tools/antigravity-mitm`                                                                        | Antigravity MITM プロキシ制御（システムプロキシを生成／指定）                                                                     |
+| `/api/modality-bridge/video/`                                                                            | 信頼済みループバックに厳密に限定された Video Bridge ランタイムプローブおよび内部抽出ブリッジ                                      |
+| `/api/services/`                                                                                         | 組み込みサービス（9Router / CLIProxy / Bifrost / Mux / Dario）— `npm install` とプロセス生成                                      |
+| `/dashboard/providers/services/`                                                                         | 組み込みサービス UI へのリバースプロキシ                                                                                          |
+| `/api/tunnels/cloudflared`                                                                               | cloudflared バイナリをインストールして生成                                                                                        |
+| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | ホスト上の tailscaled をインストール／制御                                                                                        |
+| `/api/copilot/`                                                                                          | 認証なしの LLM ドライバー — デフォルトでは CLI 専用                                                                               |
+| `/api/tools/agent-bridge/`                                                                               | AgentBridge — MITM サーバーの生成と DNS の編集                                                                                    |
+| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — http-proxy リスナーとシステムプロキシ                                                                         |
+| `/api/settings/mitm`                                                                                     | MITM インターセプトを有効化（システムレベルのプロキシ状態）                                                                       |
+| `/api/issue-agent/`                                                                                      | Issue エージェント — リポジトリに対してローカルツールを生成                                                                       |
+| `/api/plugins/`, `/api/plugins`                                                                          | プラグイン — `worker_threads` と `child_process` を介して読み込み／実行                                                           |
+| `/api/middleware/`                                                                                       | ユーザーミドルウェア — オペレーターコードをプロセス内で読み込み／実行                                                             |
+| `/api/system/version`                                                                                    | 自動更新（POST のみ。GET/HEAD/OPTIONS は除外）— `git checkout` と `npm install` を生成                                            |
+| `/api/db-backups/exportAll`                                                                              | エクスポートアーカイブ用に `tar` を生成                                                                                           |
+| `/api/local/`                                                                                            | ワンクリックのローカルランチャー（現在は Redis）— podman/docker を生成                                                            |
+| `/api/headroom/start`, `/api/headroom/stop`                                                              | Headroom プロキシのライフサイクル — python CLI の生成／PID へのシグナル送信                                                       |
+| `/api/jobs`, `/api/jobs/`                                                                                | ジョブランナー制御 — スケジュールされたホスト側の処理を実行                                                                       |
+| `/api/oauth/cursor/auto-import`                                                                          | 認証情報をインポートする前に `execFile("which", ["cursor"])` を実行                                                               |
+| `/api/oauth/kiro/auto-import`                                                                            | ホストから Kiro CLI の認証情報ファイルを読み取り                                                                                  |
+| `/api/skills/collect/`                                                                                   | スキル収集 — ローカルツールを検出／インストール                                                                                   |
+| `/api/skills/install`, `/api/skills/executions`                                                          | Skill ハンドラーの登録と実行 — サンドボックスコンテナの起動に到達（GHSA-jx89）                                                    |
+| `/api/discovery/`                                                                                        | ローカルネットワーク／プロバイダー検出プローブ                                                                                    |
+| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | 対話型ログイン用にヘッドフルブラウザーと VNC セッションを起動                                                                     |
+| `/api/acp/agents`                                                                                        | ACP — ローカル CLI エージェントバイナリを検出して起動                                                                             |
+| `/api/resilience/connections`                                                                            | アカウントごとのレジリエンス JSON（クールダウン、ブレーカー、ロックアウト）。ダッシュボードの HTML はローカル専用ではありません。 |
+| `/api/providers/cursor/agent-availability`                                                               | ダッシュボードのインストール促進チェック — `cursor-agent status --format json` を起動                                             |
+| `/api/providers/{id}/login`（正規表現）                                                                  | Web Cookie ログイン用にヘッドフル Playwright Chromium を起動                                                                      |
+| `/api/providers/volcengine-plan/connect`（正規表現）                                                     | 手動のヘッドフルフロー + セッションベースの電話／SMS 自動ログイン（Playwright を起動）                                            |
+| `/api/providers/{id}/refresh-cursor`（正規表現）                                                         | Cursor セッションの手動更新 — `cursor-agent` に処理を促す                                                                         |
+| `/api/providers/{id}/chatgpt-web-codex-doctor`（正規表現）                                               | ローカルの Codex CLI インストールを診断（バイナリを起動）                                                                         |
 
-**違反時のレスポンス:** `403 LOCAL_ONLY`
+**違反時のレスポンス：** `403 LOCAL_ONLY`
 
 #### manage スコープの例外
 
-LOCAL_ONLY パスの一部は、リクエストに `Authorization: Bearer <api-key>` が含まれ、
-そのメタデータに `manage` スコープ（または `admin`）が含まれている場合に限り、
+LOCAL_ONLY パスの一部は、リクエストに `manage` スコープ（または `admin`）を
+含むメタデータを持つ `Authorization: Bearer <api-key>` が指定されている場合に限り、
 非ループバックからもアクセスできる場合があります。この例外は
-`LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` によりパスごとに明示的に制御されるため、
+`LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` を介してパスごとに明示的に制御されるため、
 新しい LOCAL_ONLY パスのデフォルトは引き続き厳格なループバック限定となります。未認証の
-リクエスト、および manage 権限のないキーを使用したリクエストは、引き続き
+リクエスト、および manage キー以外を使用するリクエストは、引き続き
 `403 LOCAL_ONLY` で拒否されます。
 
-現時点で例外が許可されるプレフィックスは `/api/mcp/` のみです。`/api/cli-tools/runtime/` と
-`/api/services/` は、任意のサブプロセス（`npm install`、`node`）を起動でき、
-LOCAL_ONLY 階層が防止する目的そのものである CVE のクラスに該当するため、意図的に除外されています。
+現在、バイパス可能なプレフィックスは `/api/mcp/` のみです。`/api/cli-tools/runtime/` と
+`/api/services/` は、任意のサブプロセス（`npm install`、`node`）を起動できるため、
+意図的に除外されています。これは、LOCAL_ONLY 層が防止するために存在する
+まさにその CVE クラスに該当します。
 
-**#7895 — `mcp:connect` の限定スコープ:** `/api/mcp/` の例外では、
-限定的な `mcp:connect` スコープを持つ Bearer キーも受け入れます
-（`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`）。これは
-`src/server/authz/policies/management.ts` の `hasMcpConnectOrManageScope()` によって確認されます。
-このスコープは `/api/mcp/` のみに限定されます。`mcp:connect` は、他のどの
-管理ルート（今後追加される可能性のある他のすべての LOCAL_ONLY 例外プレフィックスを含む）に対しても
-何の権限も付与せず、意図的に `MANAGEMENT_API_KEY_SCOPES` から除外されています。
-`manage`/`admin` を持つキーは従来どおり例外を通過します。`mcp:connect` は、
-広範な管理アクセスを必要としないリモートの MCP 専用呼び出し元向けの、より低い権限の代替手段です。
+**#7895 — `mcp:connect` の限定スコープ：** `/api/mcp/` の例外では、
+限定的な `mcp:connect` スコープ
+（`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`）を持つ
+Bearer キーも受け入れます。これは
+`src/server/authz/policies/management.ts` の `hasMcpConnectOrManageScope()` によって
+チェックされます。この適用範囲は `/api/mcp/` **のみ**です。`mcp:connect` は、
+その他の管理ルート（今後追加される可能性がある他のすべての LOCAL_ONLY バイパスプレフィックスを含む）に対して
+一切の権限を付与せず、`MANAGEMENT_API_KEY_SCOPES` からも意図的に除外されています。
+`manage`／`admin` を持つキーは従来どおりこの例外を通過します。`mcp:connect` は、
+広範な管理アクセスを必要としないリモートの MCP 専用呼び出し元向けの、
+より低い権限の代替手段です。
 
-| リクエスト                                               | パス                       | 結果                 |
-| -------------------------------------------------------- | -------------------------- | -------------------- |
-| 非ループバック、Bearer なし                              | `/api/mcp/*`               | 403 LOCAL_ONLY       |
-| 非ループバック、`manage` スコープを持つ Bearer           | `/api/mcp/*`               | 許可                 |
-| 非ループバック、`mcp:connect` スコープを持つ Bearer      | `/api/mcp/*`               | 許可                 |
-| 非ループバック、`manage`/`mcp:connect` を持たない Bearer | `/api/mcp/*`               | 403 LOCAL_ONLY       |
-| 非ループバック、`mcp:connect` スコープを持つ Bearer      | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY       |
-| 非ループバック、`manage` スコープを持つ Bearer           | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY       |
-| ループバック、Bearer の有無を問わない                    | 任意の LOCAL_ONLY          | 許可（ゲートを通過） |
+| リクエスト                                                | パス                       | 結果                 |
+| --------------------------------------------------------- | -------------------------- | -------------------- |
+| 非ループバック、Bearer なし                               | `/api/mcp/*`               | 403 LOCAL_ONLY       |
+| 非ループバック、`manage` スコープを持つ Bearer            | `/api/mcp/*`               | 許可                 |
+| 非ループバック、`mcp:connect` スコープを持つ Bearer       | `/api/mcp/*`               | 許可                 |
+| 非ループバック、`manage`／`mcp:connect` を持たない Bearer | `/api/mcp/*`               | 403 LOCAL_ONLY       |
+| 非ループバック、`mcp:connect` スコープを持つ Bearer       | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY       |
+| 非ループバック、`manage` スコープを持つ Bearer            | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY       |
+| ループバック、Bearer の有無を問わない                     | 任意の LOCAL_ONLY          | 許可（ゲートを通過） |
 
-#### 運用者向けガイダンスと監査
+#### オペレーター向けガイダンスと監査
 
 OmniRoute をリバースプロキシまたはトンネル（nginx、Caddy、Cloudflare
-Tunnel、Tailscale、Ngrok）の背後で運用する場合でも、ループバックチェックにより、
-上記のプロセス起動可能なルートは保護されます。クライアントアドレスが非ループバックである
+Tunnel、Tailscale、Ngrok）の背後で実行する場合でも、ループバックチェックにより、
+上記の起動可能なルートは引き続き保護されます。クライアントアドレスが非ループバックである
 リクエストは、**認証が実行される前に** `403 LOCAL_ONLY` で拒否されるため、
-JWT が漏洩してもプロセス起動には到達できません。ただし、運用者には次の 2 つの責任があります。
+JWT が漏洩しても起動処理には到達できません。オペレーターには、次の 2 つの責任が残ります：
 
-- **クライアント IP をループバックに偽装して 403 を「修正」しないでください。**
+- **クライアント IP をループバックとして偽装して 403 を「修正」しないでください。**
   `X-Forwarded-For: 127.0.0.1` を設定したり、送信元アドレスをループバックに
-  書き換えるプロキシを使用したりすると、この階層が防いでいる RCE クラスを
-  再び許可することになります。プロキシ経由で公開するのはダッシュボード/API のみにし、
-  プロセス起動可能なルートは決して公開しないでください。
-- **manage スコープの例外を最小限に保ってください。** 例外を適用できるのは `/api/mcp/` のみであり、
-  `manage` スコープを持つ API キーでのみ可能です。`SPAWN_CAPABLE_PREFIXES` は
-  例外リストには一切追加できません。zod スキーマによって拒否され、実行時にも
-  `isLocalOnlyBypassableByManageScope` によって拒否されます（多層防御）。
-  これが、ダッシュボードにおける「例外適用可能にはできない」という表現の意味です。
-  `/api/providers/` 配下の動的セグメントおよび静的パスのプロセス起動可能なルート
-  （例: `/login`、`/refresh-cursor`）は、フラットな `SPAWN_CAPABLE_PREFIXES`
-  配列ではなく、`src/shared/constants/spawnCapablePrefixes.ts` にある正規表現ベースの
+  書き換えるプロキシを使用したりすると、この階層で防いでいるものとまったく同じ RCE
+  クラスの脆弱性が再び発生します。プロキシ経由で公開するのはダッシュボード/API
+  だけにし、プロセス起動機能を持つルートは決して公開しないでください。
+- **manage スコープによるバイパスは最小限に留めてください。** バイパス可能なのは
+  `/api/mcp/` のみであり、かつ `manage` スコープの API キーを使用する場合に限られます。
+  `SPAWN_CAPABLE_PREFIXES` をバイパスリストに追加することはできません。zod スキーマが
+  それらを拒否し、実行時には `isLocalOnlyBypassableByManageScope` がそれらを拒否するためです
+  （多層防御）。ダッシュボードに「バイパス可能にできない」と表示されるのは、このためです。
+  実行時のスナップショットローダーも、保存された設定行からそのようなエントリを削除し、
+  従来の JSON インポート（`/api/settings/import-json`）がバイパスキーを書き込むこともありません。
+  すべての `LOCAL_ONLY_API_PREFIXES` エントリは、拒否リストに含まれるか、バイパス対象として
+  適格かどうかがレビュー済みでなければなりません
+  （`tests/unit/authz/local-only-bypass-spawn-denylist.test.ts`）。`/api/providers/` 配下にある、
+  動的セグメントおよび静的パスのプロセス起動機能を持つルート（例: `/login`、
+  `/refresh-cursor`）は、フラットな `SPAWN_CAPABLE_PREFIXES` 配列ではなく、
+  `src/shared/constants/spawnCapablePrefixes.ts` 内の正規表現ベースの
   `SPAWN_CAPABLE_PATTERNS` / `SPAWN_CAPABLE_PATTERN_ANCESTORS` によってカバーされます。
-  フラットな配列でこれらを捕捉するには `/api/providers/` プレフィックス全体を
+  フラットな配列でこれらを検出するには `/api/providers/` プレフィックス全体を
   カバーする必要があり、リモートダッシュボードがプロバイダーの CRUD に正当に使用する
-  ルートツリーまで過度に対象を広げてしまいます。
+  ルートツリーまで過剰に対象範囲を広げることになります。
 
-**アクセスの監査** — ホスト外部からこれらのルートに到達していないことを確認するには:
+**アクセスの監査** — ホスト外からこれらのルートにアクセスされていないことを確認するには:
 
-- `/dashboard/settings/security` で **認可インベントリ** を開きます。ここには、
-  現在の LOCAL_ONLY プレフィックス一覧、バイパス可能なプレフィックス、およびコンパイル時に定義された
-  spawn 対応（「バイパス可能にできない」）セットが表示されます。
-- リバースプロキシ／アクセスログを検索し、上記のプレフィックスと
-  ループバックではないクライアントアドレスの組み合わせを確認します。そのようなアクセスが
-  `403 LOCAL_ONLY` ではなく `200` を返している場合、プロキシが実際のクライアント IP を隠しています — プロキシを修正してください。
-- これらのパスのいずれかに対する OmniRoute のログ内の `403 LOCAL_ONLY` は、ガードが
-  意図どおりに動作していることを示しており、抑制すべきエラーではありません。
+- `/dashboard/settings/security` で **認可インベントリ** を開きます。現在の
+  LOCAL_ONLY プレフィックスリスト、バイパス可能なプレフィックス、コンパイル時に定義された
+  プロセス起動可能な（「バイパス可能にできない」）セットが表示されます。
+- リバースプロキシ / アクセスログを grep し、上記のプレフィックスと非ループバックの
+  クライアントアドレスが組み合わされた記録を探します。そのようなアクセスが
+  `403 LOCAL_ONLY` ではなく `200` を返している場合、プロキシが実際のクライアント IP を
+  隠しています。プロキシを修正してください。
+- OmniRoute のログでこれらのパスのいずれかに `403 LOCAL_ONLY` が記録されている場合、
+  それはガードが意図どおりに機能していることを示しており、抑制すべきエラーではありません。
 
-### Tier 2 — ALWAYS_PROTECTED
+### 階層 2 — ALWAYS_PROTECTED
 
-**強制方法:** `isAlwaysProtectedPath(path)` → `requireLogin=false` のバイパスをスキップ
+**適用元:** `isAlwaysProtectedPath(path)` → `requireLogin=false` によるバイパスをスキップ
 **バイパス:** `requireLogin=false` の場合でも不可。常に JWT が必要
 
 これらのルートは破壊的、または元に戻せない操作を実行します。「パスワードなし」の
 インストールでこれらを許可すると、同じ LAN 上の誰もがデータベースを消去したり、
-サーバープロセスを停止したりできることになります。
+サーバープロセスを終了したりできることになります。
 
-| パス                                      | 理由                                                          |
-| ----------------------------------------- | ------------------------------------------------------------- |
-| `/api/shutdown`                           | サーバープロセスを終了する                                    |
-| `/api/settings/database`                  | データベースのエクスポート、インポート、および消去            |
-| `/api/db-backups`                         | データベース全体のバックアップアーカイブへのアクセス          |
-| `/api/settings/export-json`               | 設定 BLOB 全体（シークレットを含む）をエクスポートする        |
-| `/api/settings/import-json`               | 設定 BLOB 全体を置き換える                                    |
-| `/api/providers/health-autopilot/actions` | autopilot の修復アクションを実行する                          |
-| `/api/settings/obsidian`                  | 任意の vault ルート用に再利用可能な WebDAV 認証情報を発行する |
+| パス                                      | 理由                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------- |
+| `/api/shutdown`                           | サーバープロセスを終了する                                        |
+| `/api/settings/database`                  | データベースのエクスポート、インポート、消去                      |
+| `/api/db-backups`                         | 完全なデータベースバックアップアーカイブへのアクセス              |
+| `/api/settings/export-json`               | 設定 BLOB 全体（シークレットを含む）をエクスポートする            |
+| `/api/settings/import-json`               | 設定 BLOB 全体を置き換える                                        |
+| `/api/providers/health-autopilot/actions` | 自動修復アクションを実行する                                      |
+| `/api/settings/obsidian`                  | 任意の Vault ルートに対して再利用可能な WebDAV 認証情報を発行する |
 
 **違反時のレスポンス:** `401 Authentication required`
 
-`/api/settings/obsidian` は、その子である `/webdav` も対象にします。`POST` は、Next.js より前に
-このパイプラインの外側にあるカスタム Node レイヤーによって提供される WebDAV ファイルサービスを、呼び出し元が選択したルートに向け、
-新たに発行した Basic 認証情報を返します。`DELETE` はそれらをローテーションし、親の `POST` は
-Obsidian REST API トークンを保存します。GHSA-62vw で隠されたのは `GET` によるパスワードの公開だけであり、発行処理は
-依然としてフェイルオープンの Tier にありました（GHSA-7pq4-8pvv-rx7r）。`enableObsidianVaultSync()` はさらに、
-データディレクトリそのもの、その内部にある、またはデータディレクトリを含む vault を拒否します。
+`/api/settings/obsidian` はその子パス `/webdav` もカバーします。`POST` は、Next.js より前に
+カスタム Node レイヤーによって提供され、このパイプラインの外部にある WebDAV ファイルサービスに、
+呼び出し元が選択したルートを指定し、新たに発行された Basic 認証情報を返します。`DELETE` は
+それらをローテーションし、親の `POST` は Obsidian REST API トークンを保存します。
+GHSA-62vw でマスクされたのは `GET` によるパスワードの露出だけであり、認証情報の発行は
+依然としてフェイルオープン階層にありました（GHSA-7pq4-8pvv-rx7r）。
+`enableObsidianVaultSync()` はさらに、データディレクトリそのもの、データディレクトリ内に
+ある Vault、またはデータディレクトリを内包する Vault を拒否します。
 
-### 新規インストール時のブートストラップはループバック専用 — `Host` ではなく実際のピアに基づく
+### 新規インストール時のブートストラップはループバック限定 — `Host` ではなく実際のピアに基づく
 
 管理パスワードが設定されていない（かつ `INITIAL_PASSWORD` もない）場合、
-`src/shared/utils/apiAuth.ts` の `isAuthRequired()` は、匿名ブートストラップを**ループバックピアに対してのみ**
-開放したままにします。ループバックかどうかは、信頼されたピアシグナルから次の順序で判定されます。トークンでスタンプされた実際の TCP ピア
-（`PEER_IP_HEADER` + `VIA_PROXY_HEADER`、ポリシーが参照するもの）、パイプライン自身の
-`AUTHZ_HEADER_PEER_LOCALITY` 判定（ルートハンドラーが参照するもの。`OMNIROUTE_PEER_STAMP_TOKEN` が設定されている間のみ
-信頼される）、または直接の呼び出し元の場合は実際のソケットピアです。`Host` /
-`nextUrl.hostname` は一切参照されず、最初のパスワード書き込み
-（`POST /api/settings/require-login`）にも同じ制約が適用され、すべての
-ネットワークピアに開放されることはありません（GHSA-7pq4-8pvv-rx7r）。`managementPolicy` は自身の `peerContext` 判定を
-明示的に下流へ渡すため、元の（除去処理前の）リクエストヘッダーが判定に使用されることはありません。
+`src/shared/utils/apiAuth.ts` の `isAuthRequired()` は、匿名ブートストラップを
+**ループバックピアに対してのみ**開放します。ループバックかどうかは、信頼されたピア情報を
+次の順序で使用して判定されます。トークンでスタンプされた実際の TCP ピア
+（`PEER_IP_HEADER` + `VIA_PROXY_HEADER`、ポリシーから見える情報）、パイプライン自身の
+`AUTHZ_HEADER_PEER_LOCALITY` 判定（ルートハンドラーから見える情報であり、
+`OMNIROUTE_PEER_STAMP_TOKEN` が設定されている間のみ信頼される）、または直接呼び出し元の
+実際のソケットピアです。`Host` / `nextUrl.hostname` は一切参照されず、最初のパスワードの
+書き込み（`POST /api/settings/require-login`）にも同じ制約が適用され、すべての
+ネットワークピアに開放されることはありません（GHSA-7pq4-8pvv-rx7r）。
+`managementPolicy` は自身の `peerContext` 判定を明示的に渡すため、ORIGINAL
+（除去処理前）リクエストのヘッダーによって判定が左右されることはありません。
 
-### Tier 3 — MANAGEMENT（デフォルト）
+### 階層 3 — MANAGEMENT（デフォルト）
 
-その他すべての管理ルート。`requireLogin=false` が設定されていない限り、認証が必要です。
-CLI トークンでこれらのルートを認証できます（ループバック + 有効な HMAC）。
+その他すべての管理ルートです。`requireLogin=false` が設定されていない限り、
+認証が必要です。CLI トークンは、これらのルートを認証できます
+（ループバック + 有効な HMAC）。
 
 ## 評価順序
 

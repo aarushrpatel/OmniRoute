@@ -241,13 +241,20 @@ activă.
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
 #   ↳ afișează secretul O SINGURĂ DATĂ — copiați-l acum
-omniroute tokens list                 # mascat: id, nume, domeniu, prefix, stare, expirare
-omniroute tokens revoke <id|prefix>   # revocă imediat
+omniroute tokens list                 # mascate: id, nume, domeniu, prefix, stare, expirare
+omniroute tokens revoke <id|prefix>   # revocare imediată
 omniroute tokens scopes               # explică cele trei domenii
 ```
 
-Comenzile `tokens` necesită o acreditare de **administrator**. De asemenea, puteți gestiona tokenurile în
-panoul de control, la **Setări → Tokenuri de acces** (creare, revocare, copiere unică).
+Comenzile `tokens` necesită o acreditare **admin**. De asemenea, puteți gestiona tokenurile din
+panoul de control, în **Settings → Access Tokens** (creare, revocare, copiere o singură dată).
+
+Un token nu poate fi emis niciodată cu privilegii mai mari decât cele deținute de creatorul său. Un
+token `admin` poate fi creat doar de operator — prin sesiunea din panoul de control, prin
+CLI-ul local de pe server, prin `omniroute connect` folosind parola sau printr-o
+instanță cu autentificarea dezactivată. Acreditările mașinilor (un token de acces `admin`
+sau o cheie API cu domeniul `manage`/`admin`) pot emite numai tokenuri `write` și `read`;
+solicitarea opțiunii `--scope admin` returnează `403`.
 
 ---
 

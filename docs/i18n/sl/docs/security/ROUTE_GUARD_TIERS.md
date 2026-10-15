@@ -14,194 +14,200 @@ in se preveri, preden se izvede katera koli druga veja preverjanja pristnosti.
 
 ### Raven 1 — LOCAL_ONLY
 
-**Uveljavlja:** `isLocalOnlyPath(path)` → preverjanje gostitelja povratne zanke  
-**Obhod:** Privzeto ga ni. Ozko opredeljena izjema za poti v
+**Uveljavlja:** `isLocalOnlyPath(path)` → preverjanje gostitelja povratne zanke
+**Obhod:** Privzeto ni mogoč. Ozko opredeljena izjema za poti v
 `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES`, kadar zahteva vsebuje veljaven
 ključ API z obsegom `manage` (glejte [Izjema za obseg manage](#manage-scope-carve-out)).
 
-Te poti ustvarjajo podrejene procese ali izvajajo kodo med izvajanjem. Če bi bile
-izpostavljene prometu, ki ne prihaja iz povratne zanke, bi lahko napadalec, ki je
-pridobil veljaven JWT (npr. prek tunela Cloudflared/Ngrok), sprožil ustvarjanje
+Te poti ustvarjajo podrejene procese ali izvajajo kodo med izvajanjem. Če bi jih
+izpostavili prometu, ki ne prihaja iz povratne zanke, bi napadalcu, ki je pridobil
+veljaven JWT (npr. prek tunela Cloudflared/Ngrok), omogočili sprožitev ustvarjanja
 procesov — znan razred ranljivosti CVE
 ([GHSA-fhh6-4qxv-rpqj](https://github.com/advisories/GHSA-fhh6-4qxv-rpqj)).
 
 **Kaj je GHSA-fhh6-4qxv-rpqj (razred napada):** strežnik za upravljanje/posredniški
-strežnik razkrije končno točko, ki zažene podproces (`npm install`, `node`,
+strežnik izpostavi končno točko, ki zažene podproces (`npm install`, `node`,
 brskalnik, posredniški strežnik, `git`, `tar`, …). Če je ta končna točka dosegljiva
-izven gostitelja — ker je upravljavec OmniRoute postavil za tunel
+zunaj gostitelja — ker je upravljavec OmniRoute postavil za tunel
 nginx/Cloudflare/Tailscale in je JWT ušel ali pa je bilo preverjanje pristnosti
 napačno konfigurirano — napadalec spremeni »klic API-ja« v »izvedbo ukaza na
-gostitelju« (oddaljeno izvajanje kode). OmniRoute to preprečuje tako, da na vsaki
-poti, ki lahko ustvarja procese, **brezpogojno uveljavi preverjanje gostitelja
-povratne zanke pred kakršnim koli preverjanjem pristnosti**: žeton, ki je ušel
-prek tunela, še vedno ne more doseči ustvarjanja procesa.
+gostitelju« (oddaljeno izvajanje kode). OmniRoute to prepreči tako, da na vsaki
+poti, ki lahko ustvari proces, **brezpogojno uveljavi preverjanje gostitelja
+povratne zanke pred vsakim preverjanjem pristnosti**: uhajali žeton prek tunela
+še vedno ne more doseči ustvarjanja procesa.
 
 **Celoten nabor LOCAL_ONLY.** Merodajni vir sta
 `LOCAL_ONLY_API_PREFIXES` / `LOCAL_ONLY_API_PATTERNS` v
 `src/server/authz/routeGuard.ts`; spodnja tabela odraža trenutno stanje. Kontrolni
-mehanizem `check-route-guard-membership` našteje vsako datoteko `route.ts` pod
-predponami, ki omogočajo ustvarjanje procesov, in povzroči neuspeh CI, če katera
-od njih ni razvrščena kot samo lokalna.
+mehanizem `check-route-guard-membership` pregleda vsak `route.ts` pod predponami,
+ki omogočajo ustvarjanje procesov, in povzroči neuspeh CI, če katera od poti ni
+razvrščena kot dostopna samo lokalno.
 
-| Predpona / vzorec                                                                                        | Zakaj je na voljo samo lokalno                                                                                                   |
-| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/mcp/`                                                                                              | Strežnik MCP — zažene mostove stdio in obdelovalnike SSE                                                                         |
-| `/api/cli-tools/runtime/`                                                                                | Izvajalno okolje orodij CLI — izvaja poljubno kodo vtičnikov                                                                     |
-| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | Zapisovalniki nastavitev za posamezna orodja, ki lahko spreminjajo binarne datoteke/konfiguracijo orodij na gostitelju           |
-| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | Enak zagon `getCliRuntimeStatus()` kot pri zgornjih šestih sorodnih poteh (GHSA-35fw-cv32-2373)                                  |
-| `/api/cli-tools/{all-statuses,status,detect}`                                                            | Preverjanja nabora orodij CLI — zaženejo `command -v` / `--version` za vsako orodje (GHSA-35fw-cv32-2373)                        |
-| `/api/cli-tools/antigravity-mitm`                                                                        | Upravljanje posredniškega strežnika MITM Antigravity (zažene/nastavi sistemski posredniški strežnik)                             |
-| `/api/modality-bridge/video/`                                                                            | Preverjanje izvajalnega okolja Video Bridge, strogo omejeno na zaupanja vreden povratni vmesnik, in notranji most za ekstrakcijo |
-| `/api/services/`                                                                                         | Vdelane storitve (9Router / CLIProxy / Bifrost / Mux / Dario) — `npm install` in zagon                                           |
-| `/dashboard/providers/services/`                                                                         | Povratni posredniški strežnik do uporabniških vmesnikov vdelanih storitev                                                        |
-| `/api/tunnels/cloudflared`                                                                               | Namesti/zažene binarno datoteko cloudflared                                                                                      |
-| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | Namesti/upravlja tailscaled na gostitelju                                                                                        |
-| `/api/copilot/`                                                                                          | Gonilnik LLM brez preverjanja pristnosti — privzeto samo prek CLI                                                                |
-| `/api/tools/agent-bridge/`                                                                               | AgentBridge — zažene strežnik MITM in spremeni nastavitve DNS                                                                    |
-| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — poslušalnik http-proxy in sistemski posredniški strežnik                                                     |
-| `/api/settings/mitm`                                                                                     | Omogoči prestrezanje MITM (stanje posredniškega strežnika na ravni sistema)                                                      |
-| `/api/issue-agent/`                                                                                      | Agent za težave — zažene lokalna orodja za delo z repozitorijem                                                                  |
-| `/api/plugins/`, `/api/plugins`                                                                          | Vtičniki — nalaganje/izvajanje prek `worker_threads` in `child_process`                                                          |
-| `/api/middleware/`                                                                                       | Uporabniška vmesna programska oprema — naloži/izvaja kodo upravljavca znotraj procesa                                            |
-| `/api/system/version`                                                                                    | Samodejna posodobitev (samo POST; GET/HEAD/OPTIONS so izvzeti) — zažene `git checkout` in `npm install`                          |
-| `/api/db-backups/exportAll`                                                                              | Zažene `tar` za izvozni arhiv                                                                                                    |
-| `/api/local/`                                                                                            | Lokalni zaganjalniki z enim klikom (trenutno Redis) — zažene podman/docker                                                       |
-| `/api/headroom/start`, `/api/headroom/stop`                                                              | Življenjski cikel posredniškega strežnika Headroom — zažene python CLI / pošlje signale procesu PID                              |
-| `/api/jobs`, `/api/jobs/`                                                                                | Upravljanje izvajalnika opravil — izvaja načrtovano delo na gostitelju                                                           |
-| `/api/oauth/cursor/auto-import`                                                                          | `execFile("which", ["cursor"])` pred uvozom poverilnic                                                                           |
-| `/api/oauth/kiro/auto-import`                                                                            | Prebere datoteke s poverilnicami Kiro CLI z gostitelja                                                                           |
-| `/api/skills/collect/`                                                                                   | Zbiranje veščin — zazna/namesti lokalna orodja                                                                                   |
-| `/api/skills/install`, `/api/skills/executions`                                                          | Registracija in izvajanje obdelovalnikov veščin — doseže zagon vsebnika peskovnika (GHSA-jx89)                                   |
-| `/api/discovery/`                                                                                        | Preverjanja odkrivanja lokalnega omrežja/ponudnikov                                                                              |
-| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | Zažene brskalnik z grafičnim vmesnikom + sejo VNC za interaktivne prijave                                                        |
-| `/api/acp/agents`                                                                                        | ACP — odkriva in zaganja lokalne izvršljive datoteke agentov CLI                                                                 |
-| `/api/resilience/connections`                                                                            | JSON odpornosti za posamezen račun (čas ohlajanja, odklopnik, zaklep). HTML nadzorne plošče ni omejen le na lokalni dostop.      |
-| `/api/providers/cursor/agent-availability`                                                               | Preverjanje nadzorne plošče s pozivom za namestitev — zažene `cursor-agent status --format json`                                 |
-| `/api/providers/{id}/login` (regularni izraz)                                                            | Zažene Playwright Chromium z grafičnim vmesnikom za prijavo prek spletnih piškotkov                                              |
-| `/api/providers/volcengine-plan/connect` (regularni izraz)                                               | Ročni postopek z grafičnim vmesnikom + samodejna prijava s telefonom/SMS-om na podlagi seje (zažene Playwright)                  |
-| `/api/providers/{id}/refresh-cursor` (regularni izraz)                                                   | Ročna obnovitev seje Cursor — pozove `cursor-agent`                                                                              |
-| `/api/providers/{id}/chatgpt-web-codex-doctor` (regularni izraz)                                         | Diagnosticira lokalno namestitev Codex CLI (zažene izvršljivo datoteko)                                                          |
+| Predpona / vzorec                                                                                        | Zakaj je na voljo samo lokalno                                                                                         |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `/api/mcp/`                                                                                              | Strežnik MCP — zaganja mostove stdio in obdelovalnike SSE                                                              |
+| `/api/cli-tools/runtime/`                                                                                | Izvajalno okolje orodij CLI — izvaja poljubno kodo vtičnikov                                                           |
+| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | Zapisovalniki nastavitev za posamezna orodja, ki lahko spreminjajo binarne datoteke/konfiguracijo orodij v gostitelju  |
+| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | Enak zagon `getCliRuntimeStatus()` kot pri šestih sorodnih orodjih zgoraj (GHSA-35fw-cv32-2373)                        |
+| `/api/cli-tools/{all-statuses,status,detect}`                                                            | Preverjanja inventarja CLI — za vsako orodje zaženejo `command -v` / `--version` (GHSA-35fw-cv32-2373)                 |
+| `/api/cli-tools/antigravity-mitm`                                                                        | Upravljanje posredniškega strežnika MITM Antigravity (zažene/nastavi sistemski posredniški strežnik)                   |
+| `/api/modality-bridge/video/`                                                                            | Strogo preverjanje izvajalnega okolja Video Bridge prek zaupanja vredne povratne zanke in notranji most za ekstrakcijo |
+| `/api/services/`                                                                                         | Vdelane storitve (9Router / CLIProxy / Bifrost / Mux / Dario) — `npm install` + zagon                                  |
+| `/dashboard/providers/services/`                                                                         | Povratni posredniški strežnik do uporabniških vmesnikov vdelanih storitev                                              |
+| `/api/tunnels/cloudflared`                                                                               | Namesti/zažene binarno datoteko cloudflared                                                                            |
+| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | Namesti/upravlja tailscaled v gostitelju                                                                               |
+| `/api/copilot/`                                                                                          | Gonilnik LLM brez preverjanja pristnosti — privzeto samo za CLI                                                        |
+| `/api/tools/agent-bridge/`                                                                               | AgentBridge — zažene strežnik MITM in spremeni nastavitve DNS                                                          |
+| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — poslušalnik http-proxy in sistemski posredniški strežnik                                           |
+| `/api/settings/mitm`                                                                                     | Omogoči prestrezanje MITM (stanje posredniškega strežnika na sistemski ravni)                                          |
+| `/api/issue-agent/`                                                                                      | Agent za težave — zažene lokalna orodja nad repozitorijem                                                              |
+| `/api/plugins/`, `/api/plugins`                                                                          | Vtičniki — nalaganje/izvajanje prek `worker_threads` + `child_process`                                                 |
+| `/api/middleware/`                                                                                       | Uporabniška vmesna programska oprema — naloži/izvede kodo upravljavca znotraj procesa                                  |
+| `/api/system/version`                                                                                    | Samodejna posodobitev (samo POST; GET/HEAD/OPTIONS so izvzeti) — zažene `git checkout` + `npm install`                 |
+| `/api/db-backups/exportAll`                                                                              | Za izvozni arhiv zažene `tar`                                                                                          |
+| `/api/local/`                                                                                            | Lokalni zaganjalniki z enim klikom (trenutno Redis) — zažene podman/docker                                             |
+| `/api/headroom/start`, `/api/headroom/stop`                                                              | Življenjski cikel posredniškega strežnika Headroom — zažene python CLI / pošlje signale PID-u                          |
+| `/api/jobs`, `/api/jobs/`                                                                                | Upravljanje izvajalnika opravil — izvaja načrtovana opravila na strani gostitelja                                      |
+| `/api/oauth/cursor/auto-import`                                                                          | Pred uvozom poverilnic izvede `execFile("which", ["cursor"])`                                                          |
+| `/api/oauth/kiro/auto-import`                                                                            | Prebere datoteke s poverilnicami Kiro CLI iz gostitelja                                                                |
+| `/api/skills/collect/`                                                                                   | Zbiranje veščin — zazna/namesti lokalna orodja                                                                         |
+| `/api/skills/install`, `/api/skills/executions`                                                          | Registracija izvajalnika veščin + izvajanje — omogoča zagon vsebnika peskovnika (GHSA-jx89)                            |
+| `/api/discovery/`                                                                                        | Sonde za odkrivanje lokalnega omrežja/ponudnikov                                                                       |
+| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | Za interaktivne prijave zažene brskalnik z grafičnim vmesnikom + sejo VNC                                              |
+| `/api/acp/agents`                                                                                        | ACP — odkriva in zaganja lokalne izvršljive datoteke agentov CLI                                                       |
+| `/api/resilience/connections`                                                                            | JSON odpornosti za posamezni račun (premor, odklopnik, zaklep). HTML nadzorne plošče ni omejen samo na lokalni dostop. |
+| `/api/providers/cursor/agent-availability`                                                               | Preverjanje poziva za namestitev na nadzorni plošči — zažene `cursor-agent status --format json`                       |
+| `/api/providers/{id}/login` (regularni izraz)                                                            | Za prijavo prek spletnih piškotkov zažene Playwright Chromium z grafičnim vmesnikom                                    |
+| `/api/providers/volcengine-plan/connect` (regularni izraz)                                               | Ročni potek z grafičnim vmesnikom + samodejna prijava s telefonom/SMS-om na podlagi seje (zažene Playwright)           |
+| `/api/providers/{id}/refresh-cursor` (regularni izraz)                                                   | Ročna obnovitev seje Cursor — spodbudi `cursor-agent`                                                                  |
+| `/api/providers/{id}/chatgpt-web-codex-doctor` (regularni izraz)                                         | Diagnosticira lokalno namestitev Codex CLI (zažene izvršljivo datoteko)                                                |
 
 **Odziv ob kršitvi:** `403 LOCAL_ONLY`
 
 #### Izjema za obseg upravljanja
 
-Do podmnožice poti LOCAL_ONLY je MOGOČE dostopati tudi z naslovov, ki niso povratne zanke, če in
-samo če zahteva vsebuje `Authorization: Bearer <api-key>`, katerega
-metapodatki vključujejo obseg `manage` (ali `admin`). Izjema je izrecno omogočena
-za vsako posamezno pot prek `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES`, zato
-privzeto za vsako novo pot LOCAL_ONLY ostane stroga omejitev na povratno zanko. Neoverjene
-zahteve in zahteve s ključi brez obsega za upravljanje so še vedno zavrnjene z
-`403 LOCAL_ONLY`.
+Do podmnožice poti LOCAL_ONLY JE MOGOČE dostopati tudi iz naslovov, ki niso
+povratne zanke, če in samo če zahteva vsebuje `Authorization: Bearer <api-key>`,
+katerega metapodatki vključujejo obseg `manage` (ali `admin`). Izjema je za
+vsako pot izrecno omogočena prek `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES`, zato
+privzeta nastavitev za vsako novo pot LOCAL_ONLY ostaja stroga omejitev na
+povratno zanko. Neoverjene zahteve in zahteve s ključi brez obsega upravljanja
+so še vedno zavrnjene z `403 LOCAL_ONLY`.
 
-Trenutno je edina predpona, za katero je mogoč obhod, `/api/mcp/`. `/api/cli-tools/runtime/` in
-`/api/services/` sta namenoma izključeni, ker lahko zaženeta poljubne
-podprocese (`npm install`, `node`), kar je natanko razred CVE, ki ga
-raven LOCAL_ONLY preprečuje.
+Trenutno je edina predpona, za katero je mogoč obhod, `/api/mcp/`.
+`/api/cli-tools/runtime/` in `/api/services/` sta namenoma izključeni, ker lahko
+zaženeta poljubne podprocese (`npm install`, `node`), kar je natanko razred CVE,
+ki naj bi ga raven LOCAL_ONLY preprečevala.
 
-**#7895 — ozek obseg `mcp:connect`:** izjema za `/api/mcp/` sprejme TUDI
+**#7895 — ozek obseg `mcp:connect`:** izjema za `/api/mcp/` SPREJME TUDI
 ključ Bearer z ozkim obsegom `mcp:connect`
-(`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`), preverjenim prek
-`hasMcpConnectOrManageScope()` v `src/server/authz/policies/management.ts`.
-Ta obseg velja SAMO za `/api/mcp/` — `mcp:connect` ne dodeljuje ničesar na nobeni drugi
-upravljavski poti (vključno z vsako drugo predpono obhoda LOCAL_ONLY, če bi bila
-kdaj dodana) in je namenoma izključen iz
-`MANAGEMENT_API_KEY_SCOPES`. Ključ z obsegom `manage`/`admin` še vedno prestane
-preverjanje izjeme natanko tako kot prej; `mcp:connect` je alternativa z nižjimi pravicami
-za oddaljene klicatelje, ki uporabljajo samo MCP in ne potrebujejo širokega dostopa za upravljanje.
+(`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`), ki se preveri
+prek `hasMcpConnectOrManageScope()` v `src/server/authz/policies/management.ts`.
+To je omejeno IZKLJUČNO na `/api/mcp/` — `mcp:connect` ne podeljuje ničesar na
+nobeni drugi upravljavski poti (vključno z vsemi drugimi predponami za obhod
+LOCAL_ONLY, če bi bila katera kadar koli dodana) in je namenoma izključen iz
+`MANAGEMENT_API_KEY_SCOPES`. Ključ z obsegom `manage`/`admin` še vedno omogoča
+izjemo natanko tako kot prej; `mcp:connect` je alternativa z manj privilegiji
+za oddaljene klicatelje, ki uporabljajo samo MCP in ne potrebujejo širokega
+upravljavskega dostopa.
 
-| Zahteva                                               | Pot                        | Rezultat                        |
-| ----------------------------------------------------- | -------------------------- | ------------------------------- |
-| Ni povratna zanka, brez Bearerja                      | `/api/mcp/*`               | 403 LOCAL_ONLY                  |
-| Ni povratna zanka, Bearer z obsegom `manage`          | `/api/mcp/*`               | Dovoli                          |
-| Ni povratna zanka, Bearer z obsegom `mcp:connect`     | `/api/mcp/*`               | Dovoli                          |
-| Ni povratna zanka, Bearer brez `manage`/`mcp:connect` | `/api/mcp/*`               | 403 LOCAL_ONLY                  |
-| Ni povratna zanka, Bearer z obsegom `mcp:connect`     | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY                  |
-| Ni povratna zanka, Bearer z obsegom `manage`          | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY                  |
-| Povratna zanka, poljuben/brez Bearerja                | poljubna pot LOCAL_ONLY    | Dovoli (preverjanje je uspešno) |
+| Zahteva                                               | Pot                        | Rezultat             |
+| ----------------------------------------------------- | -------------------------- | -------------------- |
+| Ni povratna zanka, brez Bearer                        | `/api/mcp/*`               | 403 LOCAL_ONLY       |
+| Ni povratna zanka, Bearer z obsegom `manage`          | `/api/mcp/*`               | Dovoli               |
+| Ni povratna zanka, Bearer z obsegom `mcp:connect`     | `/api/mcp/*`               | Dovoli               |
+| Ni povratna zanka, Bearer brez `manage`/`mcp:connect` | `/api/mcp/*`               | 403 LOCAL_ONLY       |
+| Ni povratna zanka, Bearer z obsegom `mcp:connect`     | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY       |
+| Ni povratna zanka, Bearer z obsegom `manage`          | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY       |
+| Povratna zanka, poljuben/brez Bearer                  | katera koli LOCAL_ONLY     | Dovoli (prehod uspe) |
 
 #### Navodila za upravljavce in revidiranje
 
-Če OmniRoute uporabljate za povratnim posredniškim strežnikom ali predorom (nginx, Caddy, Cloudflare
-Tunnel, Tailscale, Ngrok), preverjanje povratne zanke še vedno ščiti zgoraj navedene
-poti, ki omogočajo zaganjanje — zahteva, katere naslov odjemalca ni naslov povratne zanke, je zavrnjena z
-`403 LOCAL_ONLY` **pred izvedbo overjanja**, zato razkrit JWT ne more doseči zagona. Ostajata
-dve odgovornosti upravljavca:
+Če OmniRoute izvajate za obratnim posredniškim strežnikom ali tunelom (nginx,
+Caddy, Cloudflare Tunnel, Tailscale, Ngrok), preverjanje povratne zanke še vedno
+ščiti zgornje poti, ki omogočajo zaganjanje — zahteva, katere naslov odjemalca
+ni naslov povratne zanke, je zavrnjena z `403 LOCAL_ONLY` **pred izvedbo
+preverjanja pristnosti**, zato razkrit JWT ne more doseči zagona. Upravljavcem
+ostajata dve odgovornosti:
 
-- **Napake 403 ne »popravljajte« s ponarejanjem naslova IP odjemalca kot naslova povratne zanke.** Nastavitev
-  `X-Forwarded-For: 127.0.0.1` ali posredniški strežnik, ki prepiše izvorni naslov v
-  naslov povratne zanke, znova omogoči natanko razred RCE, ki ga ta raven preprečuje. Prek
-  posredniškega strežnika izpostavite nadzorno ploščo/API — nikoli poti, ki omogočajo zaganjanje.
-- **Obhod na podlagi obsega upravljanja naj bo čim bolj omejen.** Obhod je mogoč samo za `/api/mcp/` in
-  samo s ključem API z obsegom `manage`. Elementov `SPAWN_CAPABLE_PREFIXES` ni nikoli mogoče
+- **Ne »odpravljajte« napake 403 s ponarejanjem IP-ja odjemalca kot povratnega naslova.** Nastavitev
+  `X-Forwarded-For: 127.0.0.1` ali posredniški strežnik, ki izvorni naslov prepiše v
+  povratni naslov, znova omogoči natanko tisti razred RCE, ki ga ta raven preprečuje. Prek
+  posredniškega strežnika izpostavite nadzorno ploščo/API — nikoli poti, ki omogočajo zaganjanje procesov.
+- **Obhod z obsegom `manage` naj bo čim bolj omejen.** Obhod je mogoč samo za `/api/mcp/` in
+  samo s ključem API z obsegom `manage`. Vrednosti `SPAWN_CAPABLE_PREFIXES` ni mogoče nikoli
   dodati na seznam obhodov — shema zod jih zavrne,
-  `isLocalOnlyBypassableByManageScope` pa jih zavrne med izvajanjem (večplastna obramba),
-  kar nadzorna plošča označuje z »ni mogoče omogočiti obhoda«. Poti, ki omogočajo zaganjanje,
-  z dinamičnimi segmenti in statične poti pod `/api/providers/` (npr. `/login`,
-  `/refresh-cursor`) pokriva spremljevalni mehanizem, ki temelji na regularnih izrazih,
-  `SPAWN_CAPABLE_PATTERNS` /
+  `isLocalOnlyBypassableByManageScope` pa jih zavrne med izvajanjem (večplastna zaščita),
+  kar ima nadzorna plošča v mislih z besedilom »obhoda ni mogoče omogočiti«. Nalagalnik
+  posnetkov med izvajanjem takšne vnose tudi odstrani iz shranjene vrstice z nastavitvami,
+  podedovani uvoz JSON (`/api/settings/import-json`) pa ključev za obhod nikoli ne zapiše.
+  Vsak vnos `LOCAL_ONLY_API_PREFIXES` mora biti bodisi na seznamu prepovedi bodisi
+  pregledan kot primeren za obhod (`tests/unit/authz/local-only-bypass-spawn-denylist.test.ts`). Poti,
+  ki omogočajo zaganjanje procesov in vsebujejo dinamične segmente ali statične poti pod
+  `/api/providers/` (npr. `/login`, `/refresh-cursor`), pokrivata spremljevalna izraza na osnovi
+  regularnih izrazov `SPAWN_CAPABLE_PATTERNS` /
   `SPAWN_CAPABLE_PATTERN_ANCESTORS` v
-  `src/shared/constants/spawnCapablePrefixes.ts`, in ne ploščata
-  matrika `SPAWN_CAPABLE_PREFIXES` — ploščata matrika bi morala za njihovo zajetje pokrivati
-  celotno predpono `/api/providers/`, kar bi prekomerno razširilo omejitev na drevo poti,
+  `src/shared/constants/spawnCapablePrefixes.ts`, ne pa enodimenzionalna matrika
+  `SPAWN_CAPABLE_PREFIXES` — ta matrika bi morala za njihovo zaznavanje pokrivati
+  celotno predpono `/api/providers/`, s čimer bi preveč razširila omejitev na drevo poti,
   ki ga oddaljene nadzorne plošče upravičeno uporabljajo za operacije CRUD ponudnikov.
 
-**Revidiranje dostopa** — da preverite, ali karkoli zunaj gostitelja dostopa do teh poti:
+**Preverjanje dostopa** — da se prepričate, da do teh poti ne dostopa nič zunaj gostitelja:
 
-- Odprite **Authorization Inventory** na `/dashboard/settings/security`: prikazuje
-  trenutni seznam predpon LOCAL_ONLY, predpone, pri katerih je mogoče zaobiti preverjanje, in ob prevajanju določeno
-  množico zmožnosti zaganjanja procesov (»preverjanja ni mogoče zaobiti«).
-- V dnevnikih povratnega posredniškega strežnika/dostopa poiščite zgornje predpone, povezane z
-  naslovom odjemalca, ki ni naslov povratne zanke. Vsak tak zadetek, ki je vrnil `200` namesto
-  `403 LOCAL_ONLY`, pomeni, da posredniški strežnik prikriva dejanski naslov IP odjemalca — popravite posredniški strežnik.
-- Zapis `403 LOCAL_ONLY` v dnevnikih OmniRoute za eno od teh poti pomeni, da varovalo
+- Odprite **Popis avtorizacije** na `/dashboard/settings/security`: prikazuje trenutni
+  seznam predpon LOCAL_ONLY, predpone, za katere je mogoč obhod, in med prevajanjem določen
+  nabor poti, ki omogočajo zaganjanje procesov (»obhoda ni mogoče omogočiti«).
+- V dnevnikih posredniškega strežnika/dostopa poiščite zgornje predpone skupaj z
+  naslovom odjemalca, ki ni povratni naslov. Vsak tak zadetek, ki je vrnil `200` namesto
+  `403 LOCAL_ONLY`, pomeni, da posredniški strežnik prikriva dejanski IP odjemalca — popravite posredniški strežnik.
+- Vnos `403 LOCAL_ONLY` v dnevnikih OmniRoute za eno od teh poti pomeni, da varovalo
   deluje, kot je predvideno, in ni napaka, ki bi jo bilo treba skriti.
 
 ### Raven 2 — ALWAYS_PROTECTED
 
 **Uveljavlja:** `isAlwaysProtectedPath(path)` → preskoči obhod `requireLogin=false`
-**Obhod:** Ni mogoč, kadar je `requireLogin=false`; JWT je vedno zahtevan
+**Obhod:** Ni ga, ko je `requireLogin=false`; JWT je vedno zahtevan
 
 Te poti izvajajo uničujoča ali nepovratna dejanja. Če bi jih dovolili v namestitvi
-»brez gesla«, bi lahko kdor koli v istem omrežju LAN izbrisal podatkovno zbirko ali končal
-strežniški proces.
+»brez gesla«, bi lahko kdorkoli v istem omrežju LAN izbrisal podatkovno zbirko ali
+končal strežniški proces.
 
 | Pot                                       | Razlog                                                                        |
 | ----------------------------------------- | ----------------------------------------------------------------------------- |
 | `/api/shutdown`                           | Konča strežniški proces                                                       |
 | `/api/settings/database`                  | Izvoz, uvoz in izbris podatkovne zbirke                                       |
-| `/api/db-backups`                         | Dostop do celotnega arhiva varnostnih kopij zbirke                            |
-| `/api/settings/export-json`               | Izvozi celoten sklop nastavitev (vključno s skrivnostmi)                      |
-| `/api/settings/import-json`               | Zamenja celoten sklop nastavitev                                              |
-| `/api/providers/health-autopilot/actions` | Izvede dejanja samodejnega odpravljanja težav                                 |
+| `/api/db-backups`                         | Dostop do celotnega arhiva varnostne kopije podatkovne zbirke                 |
+| `/api/settings/export-json`               | Izvozi celoten skupek nastavitev (vključno s skrivnostmi)                     |
+| `/api/settings/import-json`               | Zamenja celoten skupek nastavitev                                             |
+| `/api/providers/health-autopilot/actions` | Izvede samodejna popravljalna dejanja avtopilota                              |
 | `/api/settings/obsidian`                  | Ustvari poverilnice WebDAV za večkratno uporabo za kateri koli koren trezorja |
 
 **Odziv ob kršitvi:** `401 Authentication required`
 
-`/api/settings/obsidian` vključuje podrejeno pot `/webdav`: `POST` usmeri datotečno storitev WebDAV —
-ki jo lastna plast Node streže pred Next.js, zunaj tega cevovoda — na koren, ki ga izbere klicatelj,
-in vrne na novo ustvarjene poverilnice Basic, `DELETE` jih zamenja, nadrejeni `POST` pa shrani
-žeton REST API za Obsidian. GHSA-62vw je prikril samo razkritje gesla prek `GET`; izdajanje
-je bilo še vedno na ravni, ki se ob napaki odpre (GHSA-7pq4-8pvv-rx7r). `enableObsidianVaultSync()` poleg tega
-zavrne trezor, ki je podatkovni imenik, je znotraj njega ali ga vsebuje.
+`/api/settings/obsidian` pokriva svojo podrejeno pot `/webdav`: `POST` usmeri datotečno storitev WebDAV —
+ki jo prilagojena plast Node streže pred Next.js in zunaj tega cevovoda — v koren, ki ga izbere klicatelj,
+ter vrne na novo ustvarjene poverilnice Basic, `DELETE` jih zamenja, nadrejeni `POST` pa shrani
+žeton API REST za Obsidian. GHSA-62vw je prikril samo razkritje gesla prek `GET`; izdajanje poverilnic je
+bilo še vedno na ravni z odprtim dostopom ob napaki (GHSA-7pq4-8pvv-rx7r). `enableObsidianVaultSync()` poleg tega
+zavrne trezor, ki je podatkovna mapa, je v njej ali jo vsebuje.
 
-### Začetna nastavitev sveže namestitve je omejena na povratno zanko — glede na dejanskega vrstnika, ne `Host`
+### Začetna nastavitev sveže namestitve je omejena na povratne povezave — glede na dejanskega vrstnika, ne `Host`
 
-Če upravljavsko geslo ni nastavljeno (in ni `INITIAL_PASSWORD`), `isAuthRequired()` v
-`src/shared/utils/apiAuth.ts` ohrani anonimno začetno nastavitev odprto **samo za vrstnike na povratni zanki**.
-Povratna zanka se določi iz zaupanja vrednih signalov vrstnika v naslednjem vrstnem redu: s tokenom označeni dejanski vrstnik TCP
-(`PEER_IP_HEADER` + `VIA_PROXY_HEADER`, kar vidi pravilnik), lastna presoja cevovoda
-`AUTHZ_HEADER_PEER_LOCALITY` (kar vidijo obdelovalniki poti, zaupanja vredno samo, ko je
-nastavljen `OMNIROUTE_PEER_STAMP_TOKEN`) ali dejanski vrstnik vtičnice za neposredne klicatelje. `Host` /
-`nextUrl.hostname` se nikoli ne upoštevata, za prvi zapis gesla
-(`POST /api/settings/require-login`) pa velja ista omejitev, namesto da bi bil odprt vsem
-omrežnim vrstnikom (GHSA-7pq4-8pvv-rx7r). `managementPolicy` svojo presojo `peerContext`
-izrecno posreduje naprej, zato glave IZVIRNE (pred odstranitvijo) zahteve nikoli ne odločajo o tem.
+Če geslo za upravljanje ni nastavljeno (in ni spremenljivke `INITIAL_PASSWORD`), `isAuthRequired()` v
+`src/shared/utils/apiAuth.ts` ohrani anonimno začetno nastavitev odprto **samo za povratne vrstnike**.
+Povratna povezava se določi iz zaupanja vrednih signalov vrstnika v naslednjem vrstnem redu: dejanski
+vrstnik TCP, označen z žetonom (`PEER_IP_HEADER` + `VIA_PROXY_HEADER`, kar vidi pravilnik), lastna
+presoja cevovoda `AUTHZ_HEADER_PEER_LOCALITY` (kar vidijo obdelovalniki poti; zaupa se ji samo, dokler
+je nastavljen `OMNIROUTE_PEER_STAMP_TOKEN`), ali dejanski vrstnik vtičnice za neposredne klicatelje.
+`Host` / `nextUrl.hostname` se nikoli ne upoštevata, prvi zapis gesla
+(`POST /api/settings/require-login`) pa je podvržen isti omejitvi, namesto da bi bil odprt vsem
+omrežnim vrstnikom (GHSA-7pq4-8pvv-rx7r). `managementPolicy` izrecno posreduje lastno presojo
+`peerContext`, zato o njej nikoli ne odločajo glave IZVIRNE zahteve (pred odstranitvijo).
 
 ### Raven 3 — MANAGEMENT (privzeto)
 
-Vse druge upravljavske poti. Preverjanje pristnosti je zahtevano, razen če je nastavljeno
-`requireLogin=false`. Žetoni CLI lahko preverijo pristnost za te poti (povratna zanka + veljaven HMAC).
+Vse druge poti za upravljanje. Preverjanje pristnosti je zahtevano, razen če je nastavljeno
+`requireLogin=false`. Žetoni CLI lahko preverijo pristnost za te poti (povratna povezava + veljaven HMAC).
 
 ## Vrstni red preverjanja
 

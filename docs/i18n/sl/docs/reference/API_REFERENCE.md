@@ -904,49 +904,49 @@ X-OmniRoute-No-Cache: true
 
 ## Nadzorna plošča in upravljanje
 
-Upravljavske poti (`/api/*`, razen javnega preverjanja pristnosti/prijave) **niso** avtorizirane z
-običajnimi ključi API za sklepanje. Družine poverilnic, obsegi in primeri curl:
+Upravljavske poti (`/api/*`, razen javnega preverjanja pristnosti/prijave) **ne** avtorizirajo
+običajni ključi API za izvajanje sklepanja. Družine poverilnic, obsegi in primeri curl:
 [Preverjanje pristnosti za upravljanje](../guides/MANAGEMENT-AUTH.md).
 
 ### Preverjanje pristnosti
 
-| Končna točka                  | Metoda  | Opis                    |
-| ----------------------------- | ------- | ----------------------- |
-| `/api/auth/login`             | POST    | Prijava                 |
-| `/api/auth/logout`            | POST    | Odjava                  |
-| `/api/settings/require-login` | GET/PUT | Preklop obvezne prijave |
+| Končna točka                  | Metoda  | Opis                       |
+| ----------------------------- | ------- | -------------------------- |
+| `/api/auth/login`             | POST    | Prijava                    |
+| `/api/auth/logout`            | POST    | Odjava                     |
+| `/api/settings/require-login` | GET/PUT | Preklop zahteve po prijavi |
 
 ### Upravljanje ponudnikov
 
-| Končna točka                            | Metoda                    | Opis                                                                                                                                                                                                                  |
-| --------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/providers`                        | GET/POST                  | Prikaz seznama / ustvarjanje ponudnikov                                                                                                                                                                               |
-| `/api/providers/[id]`                   | GET/PUT/DELETE            | Upravljanje ponudnika                                                                                                                                                                                                 |
-| `/api/providers/[id]/test`              | POST                      | Preizkus povezave s ponudnikom                                                                                                                                                                                        |
-| `/api/providers/[id]/models`            | GET                       | Prikaz seznama modelov ponudnika                                                                                                                                                                                      |
-| `/api/providers/validate`               | POST                      | Preverjanje veljavnosti konfiguracije ponudnika                                                                                                                                                                       |
-| `/api/providers/bulk`                   | POST                      | Množično dodajanje ključev API za ENEGA ponudnika                                                                                                                                                                     |
-| `/api/providers/import`                 | POST                      | Uvoz heterogenega SEZNAMA ponudnikov iz razčlenjene datoteke CSV/JSON (#6836); rezultati delnih napak za posamezne vrstice                                                                                            |
-| `/api/provider-nodes*`                  | Različne                  | Upravljanje vozlišč ponudnika                                                                                                                                                                                         |
-| `/api/provider-models`                  | GET/POST/PUT/PATCH/DELETE | Modeli po meri in preglasitve za posamezne modele (dodajanje, posodabljanje, skrivanje/prikazovanje, brisanje)                                                                                                        |
-| `/api/provider-models/validate-and-add` | POST                      | Strogo preverjanje povezave z upravljavskim preverjanjem pristnosti, ki ga je treba izrecno omogočiti, in atomska registracija modela po meri; glejte [Preverjanje veljavnosti modela](../guides/MODEL-VALIDATION.md) |
+| Končna točka                            | Metoda                    | Opis                                                                                                                                                                            |
+| --------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/providers`                        | GET/POST                  | Prikaz seznama / ustvarjanje ponudnikov                                                                                                                                         |
+| `/api/providers/[id]`                   | GET/PUT/DELETE            | Upravljanje ponudnika                                                                                                                                                           |
+| `/api/providers/[id]/test`              | POST                      | Preizkus povezave s ponudnikom                                                                                                                                                  |
+| `/api/providers/[id]/models`            | GET                       | Prikaz seznama modelov ponudnika                                                                                                                                                |
+| `/api/providers/validate`               | POST                      | Preverjanje veljavnosti konfiguracije ponudnika                                                                                                                                 |
+| `/api/providers/bulk`                   | POST                      | Množično dodajanje ključev API za ENEGA ponudnika                                                                                                                               |
+| `/api/providers/import`                 | POST                      | Uvoz heterogenega SEZNAMA ponudnikov iz razčlenjene datoteke CSV/JSON (#6836); rezultati delnih napak po posameznih vrsticah                                                    |
+| `/api/provider-nodes*`                  | Različne                  | Upravljanje vozlišč ponudnikov                                                                                                                                                  |
+| `/api/provider-models`                  | GET/POST/PUT/PATCH/DELETE | Modeli po meri in preglasitve za posamezne modele (dodajanje, posodabljanje, skrivanje/prikazovanje, brisanje)                                                                  |
+| `/api/provider-models/validate-and-add` | POST                      | Izbirno strogo preverjanje povezave s preverjanjem pristnosti za upravljanje in atomska registracija modela po meri; glejte [Preverjanje modela](../guides/MODEL-VALIDATION.md) |
 
 Za sinhronizirane/uvožene modele `PUT /api/provider-models` sprejema `provider`, `modelId` in
 `maxOutputTokenOverride`: pozitivno celo število nastavi ročno omejitev izhodnih žetonov, vrednost `null`
 pa jo odstrani in obnovi privzeto vrednost. `GET /api/provider-models?provider=<provider>` vrne te
 vrednosti v `modelOutputOverrides`, vključno z modeli brez vrstice modela po meri. Preglasitev
-uporablja zmožnost izvajalnega okolja `max_output_tokens` in se ohrani po ponovni sinhronizaciji modela. Stran ponudnika,
+uporablja izvajalno zmogljivost `max_output_tokens` in se ohrani tudi po ponovni sinhronizaciji modela. Stran ponudnika,
 združljivega z OpenAI, ponuja enake kontrolnike za urejanje/odstranjevanje in označuje modele z izrecno podporo za vid.
 
-Vozlišča Chat Completions po meri prilagodijo izrecno zavrnitev sklepanja zalednemu sistemu. Uspešen
-preizkus povezave samodejno izbere kontrolnike predloge klepeta za vsak natančen ID modela,
+Vozlišča Chat Completions po meri prilagodijo izrecne izključitve sklepanja zalednemu sistemu. Uspešen
+preizkus povezave samodejno izbere kontrolnike predloge klepeta za vsak natančni ID modela,
 katerega vnos `/models` dokazuje prepoznano vrednost `owned_by`: `vllm`, `sglang` ali `llamacpp`.
 Prosojni ovoji, združljivi z OpenAI, lahko ohranijo izvirni vnos modela znotraj ugnezdenega
-objekta `openai`; zaznavanje sledi največ trem takim ovojnicam. Modeli z manjkajočim, neznanim ali
-nasprotujočim si lastništvom ohranijo običajno vedenje OpenAI. Zaznavanje ponovno uporabi obstoječo zahtevo za katalog,
-ne ustvari nobenih žetonov dokončanja in se razveljavi, ko se končna točka povezave spremeni.
+objekta `openai`; zaznavanje sledi največ trem takim ovojnicam. Modeli z manjkajočimi, neznanimi ali
+nasprotujočimi si podatki o lastništvu ohranijo običajno vedenje OpenAI. Zaznavanje ponovno uporabi obstoječo zahtevo kataloga,
+ne ustvari nobenih žetonov dokončanja in se razveljavi, ko se spremeni končna točka povezave.
 
-Če želite določiti vedenje za zaledni sistem, ki teh metapodatkov ne izpostavlja, uporabite obstoječi API
+Če želite določiti vedenje za zaledni sistem, ki teh metapodatkov ne razkriva, uporabite obstoječi API
 za delno posodobitev ponudnika:
 
 ```json
@@ -958,19 +958,20 @@ za delno posodobitev ponudnika:
 ```
 
 To telo pošljite z `PUT /api/providers/<connection-id>`. Pri tej povezavi se izrecna
-raven sklepanja `none` pošlje kot `chat_template_kwargs.thinking=false` in
+stopnja sklepanja `none` pošlje kot `chat_template_kwargs.thinking=false` in
 `chat_template_kwargs.enable_thinking=false`. Izrecne izvorne vrednosti predloge ostanejo merodajne,
-razen če strežniško pravilo sklepanja vsili določeno raven. Nastavitev se uporabi samo, ko povezava po meri,
-združljiva z OpenAI, posreduje telo Chat Completions; zahteve Responses in običajni
-ponudniki ohranijo svojo izvorno obliko zahteve. Nastavite `reasoningControl` na `openai`, da vsilite običajno neposredno
-posredovanje `reasoning_effort` OpenAI, ali pa ga izpustite/nastavite na `null`, da uporabite samodejno zaznavanje.
+razen če strežniško pravilo sklepanja vsili določeno stopnjo. Nastavitev se uporabi samo, ko povezava po meri,
+združljiva z OpenAI, pošlje telo Chat Completions; zahteve Responses in običajni
+ponudniki ohranijo svojo izvorno obliko zahteve. Nastavite `reasoningControl` na `openai`, da vsilite običajno posredovanje
+`reasoning_effort` OpenAI, ali pa ga izpustite/nastavite na `null`, da uporabite samodejno zaznavanje.
 
-Zahteve klasifikatorja v samodejnem načinu Claude Code privzeto onemogočijo izvorno razmišljanje, kadar
-ne vsebujejo izrecnih nastavitev razmišljanja. Zaznavanje uporablja sistemsko oznako klasifikatorja v zahtevah
-v obliki Claude, ne pa imen modelov ali omejitev dokončanja. Izrecne nastavitve v telesu zahteve, podprte glave
-za trud/razmišljanje, pravila usmerjanja in razrešena raven truda modela ohranijo svojo obstoječo prednost. Obe
-stopnji klasifikatorja ohranita svoje pozive, omejitve dokončanja, končna zaporedja in dejanske odločitve
-nadrejenega sistema glede dovoljenj; druga stopnja lahko zahtevano vidno razmišljanje še vedno ustvari kot običajno besedilo.
+Zahteve klasifikatorja samodejnega načina Claude Code privzeto onemogočijo izvorno razmišljanje, kadar
+ne vsebujejo izrecnih nastavitev sklepanja. Zaznavanje uporablja sistemsko oznako klasifikatorja v zahtevah
+v obliki Claude, ne pa imen modelov ali omejitev dokončanja. Izrecne nastavitve v telesu, podprte glave za
+napor/razmišljanje, pravila usmerjanja in razrešena raven napora modela ohranijo obstoječo prednost.
+Obe stopnji klasifikatorja ohranita svoje pozive, omejitve dokončanja, zaustavitvena zaporedja in dejanske
+odločitve o dovoljenjih nadrejenega sistema; druga stopnja lahko še vedno ustvari zahtevano vidno sklepanje
+kot običajno besedilo.
 
 ### Tokovi OAuth
 
@@ -990,49 +991,49 @@ nadrejenega sistema glede dovoljenj; druga stopnja lahko zahtevano vidno razmiš
 
 ### Uporaba in analitika
 
-| Končna točka                     | Metoda          | Opis                                                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/usage/history`             | GET             | Zgodovina uporabe                                                                                                                                                                                                                                                                                                                                              |
-| `/api/usage/logs`                | GET             | Dnevniki uporabe                                                                                                                                                                                                                                                                                                                                               |
-| `/api/usage/request-logs`        | GET             | Dnevniki na ravni zahtev                                                                                                                                                                                                                                                                                                                                       |
-| `/api/usage/[connectionId]`      | GET             | Uporaba po posamezni povezavi                                                                                                                                                                                                                                                                                                                                  |
-| `/api/usage/token-limits`        | GET/POST/DELETE | Proračuni omejitev žetonov za posamezni ključ API                                                                                                                                                                                                                                                                                                              |
-| `/api/usage/model-latency-stats` | GET             | Drseči agregat zakasnitev po ponudniku/modelu (avg/p50/p95/p99, stopnja uspešnosti); filtri: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                                                                                                                   |
-| `/api/usage/cache-health`        | GET             | Povzetek zdravja predpomnilnika pozivov na podlagi `call_logs` — razmerje med pisanjem in branjem, porazdelitev velikosti zapisov p50/p90/p99, koncentracija obsežnega pisanja, razčlenitev po modelih in ocena `healthy`/`degraded`/`thrash`/`no-data`; parametra poizvedbe sta `range` (`1h`\|`24h`\|`7d`\|`30d`, privzeto `24h`) in izbirni `model` (#8827) |
+| Končna točka                     | Metoda          | Opis                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/api/usage/history`             | GET             | Zgodovina uporabe                                                                                                                                                                                                                                                                                                                                                  |
+| `/api/usage/logs`                | GET             | Dnevniki uporabe                                                                                                                                                                                                                                                                                                                                                   |
+| `/api/usage/request-logs`        | GET             | Dnevniki na ravni zahtev                                                                                                                                                                                                                                                                                                                                           |
+| `/api/usage/[connectionId]`      | GET             | Uporaba po povezavah                                                                                                                                                                                                                                                                                                                                               |
+| `/api/usage/token-limits`        | GET/POST/DELETE | Proračuni omejitev žetonov po ključih API                                                                                                                                                                                                                                                                                                                          |
+| `/api/usage/model-latency-stats` | GET             | Drseči agregat zakasnitve po ponudniku/modelu (povprečje/p50/p95/p99, stopnja uspešnosti); filtri: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                                                                                                                 |
+| `/api/usage/cache-health`        | GET             | Povzetek zdravja predpomnilnika pozivov na podlagi `call_logs` — razmerje med zapisovanjem in branjem, porazdelitev velikosti zapisov p50/p90/p99, koncentracija obsežnega zapisovanja, razčlenitev po modelih in ocena `healthy`/`degraded`/`thrash`/`no-data`; parametra poizvedbe `range` (`1h`\|`24h`\|`7d`\|`30d`, privzeto `24h`) in izbirni `model` (#8827) |
 
 ### Dovoljenja ključev API
 
-`PATCH /api/keys/{id}` posodobi dovoljenja obstoječega ključa. Tako kot vsaka pot `/api/keys*` zahteva pooblastilo za upravljanje (glejte [Preverjanje pristnosti za upravljanje](../guides/MANAGEMENT-AUTH.md)), ne pa ključa za sklepanje. Pošljite samo polja, ki jih želite spremeniti; zahteva brez katerega koli od njih je zavrnjena z napako `No valid fields to update`. Sprejeta polja določa `updateKeyPermissionsSchema` v `src/shared/validation/schemas/keys.ts`.
+`PATCH /api/keys/{id}` posodobi dovoljenja obstoječega ključa. Tako kot vsaka pot `/api/keys*` zahteva pooblastilo za upravljanje (glejte [Preverjanje pristnosti za upravljanje](../guides/MANAGEMENT-AUTH.md)), ne pa ključa za sklepanje. Pošljite samo polja, ki jih želite spremeniti; zahteva brez katerega koli od njih je zavrnjena z `No valid fields to update`. Sprejeta polja določa `updateKeyPermissionsSchema` v `src/shared/validation/schemas/keys.ts`.
 
-| Polje                                       | Vrsta                                                                    | Opombe                                                                                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                      | niz, 1–200 znakov                                                        |                                                                                                                                     |
-| `isActive`                                  | logična vrednost                                                         |                                                                                                                                     |
-| `isBanned`                                  | logična vrednost                                                         |                                                                                                                                     |
-| `expiresAt`                                 | datum in čas v obliki ISO 8601 ali `null`                                | `null` odstrani čas poteka                                                                                                          |
-| `modelAccessMode`                           | `all` \| `restricted`                                                    | `allowedModels` mora biti prazen, ko je način `all`                                                                                 |
-| `allowedModels`, `blockedModels`            | polje nizov, največ 1000                                                 |                                                                                                                                     |
-| `allowedCombos`                             | polje nizov, največ 500                                                  | Določa, katere kombinacije lahko ključ kliče; neposredne modele urejata `modelAccessMode` / `allowedModels`                         |
-| `connectionAccessMode`                      | `all` \| `restricted`                                                    | `allowedConnections` ne sme biti prazen pri `restricted` in mora biti prazen pri `all`                                              |
-| `allowedConnections`                        | polje UUID-jev, največ 100                                               |                                                                                                                                     |
-| `allowAutoCombos`                           | logična vrednost                                                         | `false` zavrne zahteve za modele `auto/*` s tem ključem; ključi, pri katerih vrednost ni bila nikoli nastavljena, so dovoljeni      |
-| `catalogScope`                              | `all` \| `combos` \| `models`                                            | Določa, kaj `GET /v1/models` izpiše za ta ključ (samo kombinacije, samo modele ali oboje); ne spreminja tega, kaj lahko ključ kliče |
-| `noLog`, `autoResolve`                      | logična vrednost                                                         |                                                                                                                                     |
-| `throttleDelayMs`                           | celo število, 0–300000                                                   |                                                                                                                                     |
-| `maxSessions`                               | celo število, 0–10000                                                    |                                                                                                                                     |
-| `rateLimits`                                | polje `{ limit, window }` (pozitivna cela števila, največ 50) ali `null` | `null` odstrani omejitve                                                                                                            |
-| `accessSchedule`                            | objekt urnika ali `null`                                                 | `null` odstrani urnik                                                                                                               |
-| `scopes`                                    | polje nizov, največ 32                                                   |                                                                                                                                     |
-| `allowedEndpoints`                          | polje nizov, največ 20                                                   |                                                                                                                                     |
-| `streamDefaultMode`                         | `legacy` \| `json`                                                       |                                                                                                                                     |
-| `cacheDefaultMode`                          | `legacy` \| `bypass`                                                     | Glejte [Obhod predpomnilnika za posamezen ključ](#per-key-cache-bypass)                                                             |
-| `compressionEnabled`                        | logična vrednost                                                         |                                                                                                                                     |
-| `codexServiceMode`                          | eden od načinov storitve Codex                                           |                                                                                                                                     |
-| `disableNonPublicModels`                    | logična vrednost                                                         |                                                                                                                                     |
-| `allowUsageCommand`                         | boolean                                                                  |                                                                                                                                     |
-| `usageLimitEnabled`                         | boolean                                                                  |                                                                                                                                     |
-| `dailyUsageLimitUsd`, `weeklyUsageLimitUsd` | number >= 0 ali `null`                                                   |                                                                                                                                     |
-| `chaosModeEnabled`                          | boolean                                                                  |                                                                                                                                     |
+| Polje                                       | Vrsta                                                                             | Opombe                                                                                                                           |
+| ------------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                      | niz, 1–200 znakov                                                                 |                                                                                                                                  |
+| `isActive`                                  | logična vrednost                                                                  |                                                                                                                                  |
+| `isBanned`                                  | logična vrednost                                                                  |                                                                                                                                  |
+| `expiresAt`                                 | datum in čas ISO 8601 ali `null`                                                  | `null` odstrani čas poteka                                                                                                       |
+| `modelAccessMode`                           | `all` \| `restricted`                                                             | `allowedModels` mora biti prazen, ko je način `all`                                                                              |
+| `allowedModels`, `blockedModels`            | polje nizov, največ 1000                                                          |                                                                                                                                  |
+| `allowedCombos`                             | polje nizov, največ 500                                                           | Določa, katere kombinacije lahko ključ kliče; neposredne modele urejata `modelAccessMode` / `allowedModels`                      |
+| `connectionAccessMode`                      | `all` \| `restricted`                                                             | `allowedConnections` ne sme biti prazen pri `restricted`, pri `all` pa mora biti prazen                                          |
+| `allowedConnections`                        | polje UUID-jev, največ 100                                                        |                                                                                                                                  |
+| `allowAutoCombos`                           | logična vrednost                                                                  | `false` zavrne zahteve za modele `auto/*` s tem ključem; ključi, pri katerih ta možnost ni bila nikoli nastavljena, so dovoljeni |
+| `catalogScope`                              | `all` \| `combos` \| `models`                                                     | Kaj `GET /v1/models` prikaže za ta ključ (samo kombinacije, samo modele ali oboje); to ne spremeni, kaj lahko ključ kliče        |
+| `noLog`, `autoResolve`                      | logična vrednost                                                                  |                                                                                                                                  |
+| `throttleDelayMs`                           | celo število, 0–300000                                                            |                                                                                                                                  |
+| `maxSessions`                               | celo število, 0–10000                                                             |                                                                                                                                  |
+| `rateLimits`                                | polje objektov `{ limit, window }` (pozitivna cela števila, največ 50) ali `null` | `null` odstrani omejitve                                                                                                         |
+| `accessSchedule`                            | objekt urnika ali `null`                                                          | `null` odstrani urnik                                                                                                            |
+| `scopes`                                    | polje nizov, največ 32                                                            |                                                                                                                                  |
+| `allowedEndpoints`                          | polje nizov, največ 20                                                            |                                                                                                                                  |
+| `streamDefaultMode`                         | `legacy` \| `json`                                                                |                                                                                                                                  |
+| `cacheDefaultMode`                          | `legacy` \| `bypass`                                                              | Glejte [Obhod predpomnilnika za posamezen ključ](#per-key-cache-bypass)                                                          |
+| `compressionEnabled`                        | logična vrednost                                                                  |                                                                                                                                  |
+| `codexServiceMode`                          | eden od načinov storitve Codex                                                    |                                                                                                                                  |
+| `disableNonPublicModels`                    | logična vrednost                                                                  |                                                                                                                                  |
+| `allowUsageCommand`                         | boolean                                                                           |                                                                                                                                  |
+| `usageLimitEnabled`                         | boolean                                                                           |                                                                                                                                  |
+| `dailyUsageLimitUsd`, `weeklyUsageLimitUsd` | number >= 0 ali `null`                                                            |                                                                                                                                  |
+| `chaosModeEnabled`                          | boolean                                                                           |                                                                                                                                  |
 
 ```bash
 curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
@@ -1061,55 +1062,59 @@ curl -X PATCH "$OMNIROUTE_URL/api/keys/$KEY_ID" \
 | `/api/compression/preview`             | POST           | Predogled izklopljenega/lahkega/standardnega/agresivnega/ultra/RTK/zloženega stiskanja |
 | `/api/compression/language-packs`      | GET            | Seznam razpoložljivih jezikovnih paketov Caveman                                       |
 | `/api/compression/rules`               | GET            | Seznam metapodatkov pravil Caveman                                                     |
-| `/api/context/caveman/config`          | GET/PUT        | Vzdevek za nastavitve, specifične za Caveman                                           |
+| `/api/context/caveman/config`          | GET/PUT        | Vzdevek nastavitev, specifičnih za Caveman                                             |
 | `/api/context/rtk/config`              | GET/PUT        | Nastavitve, specifične za RTK, vključno s filtri po meri in hrambo neobdelanega izhoda |
 | `/api/context/rtk/filters`             | GET            | Katalog filtrov RTK in diagnostika filtrov po meri                                     |
-| `/api/context/rtk/test`                | POST           | Izvedba predogleda/preizkusa RTK na besedilni koristni vsebini                         |
+| `/api/context/rtk/test`                | POST           | Zagon predogleda/preizkusa RTK z besedilno vsebino                                     |
 | `/api/context/rtk/raw-output/[id]`     | GET            | Branje shranjenega redigiranega neobdelanega izhoda glede na ID kazalca                |
 | `/api/context/combos`                  | GET/POST       | Seznam/ustvarjanje kombinacij stiskanja                                                |
 | `/api/context/combos/[id]`             | GET/PUT/DELETE | Podrobnosti/posodobitev/brisanje kombinacije stiskanja                                 |
 | `/api/context/combos/[id]/assignments` | GET/PUT        | Dodelitev kombinacij stiskanja kombinacijam usmerjanja                                 |
-| `/api/context/analytics`               | GET            | Vzdevek za analitiko stiskanja                                                         |
+| `/api/context/analytics`               | GET            | Vzdevek analitike stiskanja                                                            |
 
 ### Spremljanje
 
-| Končna točka                         | Metoda     | Opis                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`                      | GET        | Sledenje aktivnim sejam                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `/api/rate-limits`                   | GET        | Omejitve hitrosti za posamezen račun                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `/api/monitoring/health`             | GET        | Preverjanje stanja + povzetek ponudnikov (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`). Upravljavski pogled vključuje `credentialHealth`: skalarne vrednosti predpomnilnika preverjanj, `failedConnections`, ko je `failed>0`, in `staleDbNonOkCount` (trajni `test_status` v SQLite, ne merilnik). Glejte [MONITORING_GUIDE.md](../ops/MONITORING_GUIDE.md#credentialhealth-probe-cache-vs-sqlite-test_status). |
-| `/api/cache/stats`                   | GET/DELETE | Statistika predpomnilnika / čiščenje                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `/api/modality-bridge/stats`         | GET        | Vrednosti `attempts` v pomnilniku, uspehi/`bridged`, neuspehi, zadetki predpomnilnika, `totalLatencyMs`, `latencySamples`, glede na vzorce izračunani `averageLatencyMs` in čas zadnje uporabe (ponastavljeno ob ponovnem zagonu; zahteva upravljavsko avtentikacijo)                                                                                                                                                                   |
-| `/api/modality-bridge/video/runtime` | GET        | Strogo preverjanje zaupanja vredne povratne zanke pred upravljavsko avtentikacijo/preverjanjem; prečiščeni podatki o razpoložljivosti in različicah FFmpeg/ffprobe (brez shranjevanja)                                                                                                                                                                                                                                                  |
-| `/api/modality-bridge/video/extract` | POST       | Notranji avtenticirani posrednik bajtov prek zaupanja vredne povratne zanke; vhod do 50 MiB, omejena čakalna vrsta/izhod do 32 MiB, `503` ob pomanjkanju zmogljivosti, `499` ob prekinitvi povezave, `504` ob prekoračitvi roka; ni javni API za nalaganje                                                                                                                                                                              |
+| Končna točka                         | Metoda     | Opis                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Spremljanje aktivnih sej                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `/api/rate-limits`                   | GET        | Omejitve hitrosti po računih                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `/api/monitoring/health`             | GET        | Preverjanje stanja + povzetek ponudnikov (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`). Pogled za upravljanje vključuje `credentialHealth`: skalarje predpomnilnika preverjanj, `failedConnections`, ko je `failed>0`, in `staleDbNonOkCount` (lepljivi `test_status` v SQLite, ne merilnik). Glejte [MONITORING_GUIDE.md](../ops/MONITORING_GUIDE.md#credentialhealth-probe-cache-vs-sqlite-test_status). |
+| `/api/cache/stats`                   | GET/DELETE | Statistika predpomnilnika / čiščenje                                                                                                                                                                                                                                                                                                                                                                                              |
+| `/api/modality-bridge/stats`         | GET        | Vrednosti `attempts`, uspehi/`bridged`, napake, zadetki predpomnilnika, `totalLatencyMs`, `latencySamples`, na vzorcih temelječi `averageLatencyMs` in čas zadnje uporabe v pomnilniku (ponastavljeno ob vnovičnem zagonu; avtentikacija za upravljanje)                                                                                                                                                                          |
+| `/api/modality-bridge/video/runtime` | GET        | Strogo preverjanje zaupanja vredne povratne zanke pred avtentikacijo/preverjanjem za upravljanje; sanirana razpoložljivost in različice FFmpeg/ffprobe (brez shranjevanja)                                                                                                                                                                                                                                                        |
+| `/api/modality-bridge/video/extract` | POST       | Notranji avtenticirani posrednik bajtov prek zaupanja vredne povratne zanke; vhod 50 MiB, omejena čakalna vrsta/izhod 32 MiB, `503` ob zapolnjeni zmogljivosti, `499` ob prekinitvi povezave, `504` ob prekoračitvi roka; ni javni API za nalaganje datotek                                                                                                                                                                       |
 
 ### Varnostno kopiranje in izvoz/uvoz
 
-| Končna točka                | Metoda | Opis                                                   |
-| --------------------------- | ------ | ------------------------------------------------------ |
-| `/api/db-backups`           | GET    | Prikaži razpoložljive varnostne kopije                 |
-| `/api/db-backups`           | PUT    | Ustvari ročno varnostno kopijo                         |
-| `/api/db-backups`           | POST   | Obnovi iz določene varnostne kopije                    |
-| `/api/db-backups/export`    | GET    | Prenesi podatkovno zbirko kot datoteko .sqlite         |
-| `/api/db-backups/import`    | POST   | Naloži datoteko .sqlite za zamenjavo podatkovne zbirke |
-| `/api/db-backups/exportAll` | GET    | Prenesi celotno varnostno kopijo kot arhiv .tar.gz     |
+| Končna točka                | Metoda | Opis                                               |
+| --------------------------- | ------ | -------------------------------------------------- |
+| `/api/db-backups`           | GET    | Prikaži razpoložljive varnostne kopije             |
+| `/api/db-backups`           | PUT    | Ustvari ročno varnostno kopijo                     |
+| `/api/db-backups`           | POST   | Obnovi iz določene varnostne kopije                |
+| `/api/db-backups/export`    | GET    | Prenesi podatkovno zbirko kot datoteko .sqlite     |
+| `/api/db-backups/import`    | POST   | Naloži datoteko .sqlite, ki bo nadomestila zbirko  |
+| `/api/db-backups/exportAll` | GET    | Prenesi celotno varnostno kopijo kot arhiv .tar.gz |
 
-### Sinhronizacija z oblakom
+`/api/db-backups/export`, `/api/db-backups/exportAll` in `/api/settings/export-json` razkrijejo
+vse shranjene poverilnice, zato zahtevajo sejo nadzorne plošče ali lokalni CLI (oziroma
+onemogočeno prijavo). Ključi API katerega koli obsega in dostopni žetoni `oma_` prejmejo `403`.
 
-| Končna točka           | Metoda   | Opis                               |
-| ---------------------- | -------- | ---------------------------------- |
-| `/api/sync/cloud`      | Različno | Operacije sinhronizacije z oblakom |
-| `/api/sync/initialize` | POST     | Inicializiraj sinhronizacijo       |
-| `/api/cloud/*`         | Različno | Upravljanje oblaka                 |
+### Sinhronizacija v oblaku
 
-### Tuneli
+| Končna točka           | Metoda   | Opis                              |
+| ---------------------- | -------- | --------------------------------- |
+| `/api/sync/cloud`      | Različno | Operacije sinhronizacije v oblaku |
+| `/api/sync/initialize` | POST     | Inicializiraj sinhronizacijo      |
+| `/api/cloud/*`         | Različno | Upravljanje oblaka                |
+
+### Predori
 
 | Končna točka               | Metoda | Opis                                                                           |
 | -------------------------- | ------ | ------------------------------------------------------------------------------ |
 | `/api/tunnels/cloudflared` | GET    | Preberi stanje namestitve/izvajanja Cloudflare Quick Tunnel za nadzorno ploščo |
 | `/api/tunnels/cloudflared` | POST   | Omogoči ali onemogoči Cloudflare Quick Tunnel (`action=enable/disable`)        |
-| `/api/tunnels/ngrok`       | GET    | Preberi stanje izvajanja tunela ngrok za nadzorno ploščo                       |
-| `/api/tunnels/ngrok`       | POST   | Omogoči ali onemogoči tunel ngrok (`action=enable/disable`)                    |
+| `/api/tunnels/ngrok`       | GET    | Preberi stanje izvajanja ngrok Tunnel za nadzorno ploščo                       |
+| `/api/tunnels/ngrok`       | POST   | Omogoči ali onemogoči ngrok Tunnel (`action=enable/disable`)                   |
 
 ### Orodja CLI
 
@@ -1125,32 +1130,32 @@ Odgovori CLI vključujejo: `installed`, `runnable`, `command`, `commandPath`, `r
 
 ### Agenti ACP
 
-| Končna točka      | Metoda | Opis                                                             |
-| ----------------- | ------ | ---------------------------------------------------------------- |
-| `/api/acp/agents` | GET    | Seznam vseh zaznanih agentov (vgrajenih in po meri) s stanjem    |
-| `/api/acp/agents` | POST   | Dodajanje agenta po meri ali osvežitev predpomnilnika zaznavanja |
-| `/api/acp/agents` | DELETE | Odstranitev agenta po meri prek poizvedbenega parametra `id`     |
+| Končna točka      | Metoda | Opis                                                                   |
+| ----------------- | ------ | ---------------------------------------------------------------------- |
+| `/api/acp/agents` | GET    | Seznam vseh zaznanih agentov (vgrajenih in prilagojenih) s stanjem     |
+| `/api/acp/agents` | POST   | Dodajanje prilagojenega agenta ali osvežitev predpomnilnika zaznavanja |
+| `/api/acp/agents` | DELETE | Odstranitev prilagojenega agenta glede na parameter poizvedbe `id`     |
 
 Odgovor GET vključuje `agents[]` (id, name, binary, version, installed, protocol, isCustom) in `summary` (total, installed, notFound, builtIn, custom).
 
 ### Odpornost in omejitve hitrosti
 
-| Končna točka                      | Metoda    | Opis                                                                                                           |
-| --------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
-| `/api/resilience`                 | GET/PATCH | Pridobitev/posodobitev čakalne vrste zahtev, premora povezave, prekinjevalnika ponudnika in nastavitev čakanja |
-| `/api/resilience/reset`           | POST      | Ponastavitev prekinjevalnikov vezja ponudnika                                                                  |
-| `/api/resilience/model-cooldowns` | GET       | Seznam aktivnih blokad po (ponudniku, povezavi, modelu), razvrščenih po preostalem času                        |
-| `/api/resilience/model-cooldowns` | DELETE    | Odstranitev blokade modela — telo `{provider, model}` ali `{all: true}` za izbris vseh                         |
-| `/api/rate-limits`                | GET       | Stanje omejitve hitrosti za posamezen račun                                                                    |
-| `/api/rate-limit`                 | GET       | Globalna konfiguracija omejitve hitrosti                                                                       |
+| Končna točka                      | Metoda    | Opis                                                                                                          |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------- |
+| `/api/resilience`                 | GET/PATCH | Pridobitev/posodobitev čakalne vrste zahtev, premora povezave, odklopnika ponudnika in nastavitev čakanja     |
+| `/api/resilience/reset`           | POST      | Ponastavitev odklopnikov vezja ponudnikov                                                                     |
+| `/api/resilience/model-cooldowns` | GET       | Seznam aktivnih zaklepov za posamezno kombinacijo (ponudnik, povezava, model), razvrščenih po preostalem času |
+| `/api/resilience/model-cooldowns` | DELETE    | Odstranitev zaklepa modela — telo `{provider, model}` ali `{all: true}` za izbris vseh                        |
+| `/api/rate-limits`                | GET       | Stanje omejitve hitrosti za posamezen račun                                                                   |
+| `/api/rate-limit`                 | GET       | Globalna konfiguracija omejitve hitrosti                                                                      |
 
-> Vse štiri poti `/api/resilience/*` zahtevajo **skrbniško preverjanje pristnosti** (`requireManagementAuth`). Za popolno razčlenitev razlik med prekinjevalnikom ponudnika, premorom povezave in blokado modela glejte [Odpornost (razširjeno)](#resilience-extended).
+> Vse štiri poti `/api/resilience/*` zahtevajo **skrbniško preverjanje pristnosti** (`requireManagementAuth`). Za popolno razčlenitev odklopnika ponudnika, premora povezave in zaklepa modela glejte [Odpornost (razširjeno)](#resilience-extended).
 
 ### Vrednotenja
 
-| Končna točka | Metoda   | Opis                                        |
-| ------------ | -------- | ------------------------------------------- |
-| `/api/evals` | GET/POST | Seznam zbirk vrednotenj / zagon vrednotenja |
+| Končna točka | Metoda   | Opis                                          |
+| ------------ | -------- | --------------------------------------------- |
+| `/api/evals` | GET/POST | Seznam zbirk vrednotenj / izvedba vrednotenja |
 
 ### Pravilniki
 
@@ -1160,9 +1165,9 @@ Odgovor GET vključuje `agents[]` (id, name, binary, version, installed, protoco
 
 ### Skladnost
 
-| Končna točka                | Metoda | Opis                                   |
-| --------------------------- | ------ | -------------------------------------- |
-| `/api/compliance/audit-log` | GET    | Dnevnik revizij skladnosti (zadnjih N) |
+| Končna točka                | Metoda | Opis                                      |
+| --------------------------- | ------ | ----------------------------------------- |
+| `/api/compliance/audit-log` | GET    | Revizijski dnevnik skladnosti (zadnjih N) |
 
 ### v1beta (združljivo z Gemini)
 
@@ -1171,7 +1176,7 @@ Odgovor GET vključuje `agents[]` (id, name, binary, version, installed, protoco
 | `/v1beta/models`           | GET    | Seznam modelov v obliki Gemini        |
 | `/v1beta/models/{...path}` | POST   | Končna točka Gemini `generateContent` |
 
-Te končne točke posnemajo obliko API-ja Gemini za odjemalce, ki pričakujejo izvorno združljivost s kompletom SDK Gemini.
+Te končne točke posnemajo obliko API-ja Gemini za odjemalce, ki pričakujejo izvorno združljivost z Gemini SDK.
 
 ### Notranji/sistemski API-ji
 
@@ -1185,7 +1190,7 @@ Te končne točke posnemajo obliko API-ja Gemini za odjemalce, ki pričakujejo i
 | `/api/system/version`    | GET    | Trenutna/najnovejša različica, stanje posodobitve, kanal izdaje          |
 | `/api/system/version`    | POST   | Začetek posodobitve na najnovejšo različico ob upoštevanju načina uvedbe |
 
-> **Opomba:** Sistem te končne točke uporablja interno ali zaradi združljivosti z odjemalci Ollama. Končni uporabniki jih običajno ne kličejo.
+> **Opomba:** Sistem te končne točke uporablja interno ali za združljivost z odjemalci Ollama. Končni uporabniki jih običajno ne kličejo.
 
 ### Popravilo okolja OAuth _(v3.6.1+)_
 
@@ -1214,9 +1219,9 @@ Popravi manjkajoče ali poškodovane okoljske spremenljivke OAuth za določenega
 GET /api/system/version
 ```
 
-Skrbniška pot, dostopna samo prek povratne zanke (skrbniško preverjanje pristnosti). Vrne različico, ki se izvaja, najnovejšo
+Skrbniška pot, dostopna samo prek povratne zanke (skrbniško preverjanje pristnosti). Vrne trenutno nameščeno različico, najnovejšo
 objavljeno različico in stanje samodejnega posodabljanja. `releaseChannel` in `channels` sta dodatni
-polji (rail 3.8.54); `channel` ohranja svoj pomen — način uvedbe, ki ga uporablja posodabljalnik
+polji (rail 3.8.54); `channel` ohranja svoj pomen — način uvedbe, ki ga uporablja program za posodabljanje
 nadzorne plošče (`npm`, `source` ali `docker-compose`).
 
 ```json
@@ -1233,14 +1238,14 @@ nadzorne plošče (`npm`, `source` ali `docker-compose`).
 }
 ```
 
-- `releaseChannel` — kanal npm izvajane gradnje: `nightly` za različice `-nightly.*`,
+- `releaseChannel` — kanal npm aktivne gradnje: `nightly` za različice `-nightly.*`,
   `next` za druge predizdajne različice (`-rc.*`, `-beta.*`, `-alpha.*`), `lts` za stabilno različico
-  starejše glavne veje od `channels.latest`, sicer `latest`. Veljajo enaka pravila kot v
+  starejše glavne različice od `channels.latest`, sicer `latest`. Veljajo enaka pravila kot v
   `scripts/release/dist-tag.mjs`, ki ob objavi izbere oznako npm dist-tag.
-- `channels` — objavljena najnovejša različica vsake oznake dist-tag, pridobljena z `npm view omniroute dist-tags` (z rezervnim
-  dostopom prek HTTP registra), predpomnjena z enakim 10-minutnim TTL kot `latest`. `latest` je vedno prisoten
-  (rezervno uporabi polje `latest`, nato `"unavailable"`); `next`, `nightly` in `lts` se pojavijo
-  samo, če ta oznaka dist-tag obstaja. Zahteva `Cache-Control: no-cache` osveži obe poizvedbi.
+- `channels` — objavljena najnovejša različica za vsako oznako dist-tag, pridobljena z `npm view omniroute dist-tags` (z nadomestnim
+  dostopom prek registra HTTP), predpomnjena z enakim 10-minutnim časom TTL kot `latest`. `latest` je vedno prisoten
+  (nadomestno se uporabi polje `latest`, nato `"unavailable"`); `next`, `nightly` in `lts` se pojavijo
+  le, če ustrezna oznaka dist-tag obstaja. Zahteva `Cache-Control: no-cache` osveži obe poizvedbi.
 
 Model kanalov (`latest` = v3 do splošne razpoložljivosti različice 4.0, `next` = rc, `nightly` = gradnje veje `develop`,
 `lts` = popravki v3 po splošni razpoložljivosti različice 4.0) je opisan v `docs/ops/RELEASE_STRATEGY.md`.

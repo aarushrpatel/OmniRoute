@@ -14,151 +14,193 @@ kuma ana tantance ta kafin kowane reshen tantance izini ya fara aiki.
 
 ### Mataki na 1 — LOCAL_ONLY
 
-**An tilasta shi ta:** `isLocalOnlyPath(path)` → binciken mai masaukin baki na loopback
-**Kaucewa:** Babu ta tsohuwa. Ƙaramin keɓewa don hanyoyi a cikin
-`LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` lokacin da buƙatar ta ɗauki maɓallin API mai inganci tare da iyakar
-`manage` (duba [Keɓewar iyakar gudanarwa](#manage-scope-carve-out)).
+**Ana tilasta shi ta:** `isLocalOnlyPath(path)` → duba mai masaukin loopback
+**Kewaye kariya:** Babu ta tsohuwa. Akwai takaitacciyar togaciya ga hanyoyin da ke cikin
+`LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` idan buƙatar tana ɗauke da ingantacciyar
+maɓallin API mai ikon `manage` (duba [Togaciyar ikon manage](#manage-scope-carve-out)).
 
-Waɗannan hanyoyin suna haifar da matakai na yara ko suna aiwatar da lambar lokacin aiki. Bayyana su ga
-zirga-zirgar da ba ta loopback ba zai ba da damar mai kai hari wanda ya sami JWT mai inganci (misali,
-ta hanyar Cloudflared/Ngrok tunnel) don haifar da haifar da matakai — wani sanannen nau'in CVE
-([GHSA-fhh6-4qxv-rpqj](https://github.com/advisories/GHSA-fhh6-4qxv-rpqj)).
+Waɗannan hanyoyin suna ƙaddamar da child processes ko aiwatar da lambar runtime. Bayyana su ga
+zirga-zirgar da ba ta loopback ba zai ba maharin da ya sami ingantaccen JWT (misali,
+ta hanyar tunnel na Cloudflared/Ngrok) damar jawo ƙaddamar da process — sanannen ajin
+CVE ne ([GHSA-fhh6-4qxv-rpqj](https://github.com/advisories/GHSA-fhh6-4qxv-rpqj)).
 
-**Menene GHSA-fhh6-4qxv-rpqj (nau'in harin):** sabar gudanarwa/wakili
-yana bayyana wani wuri mai ƙarewa wanda ke ƙaddamar da wani tsari na yara (`npm install`, `node`, mai bincike,
-wakili, `git`, `tar`, …). Idan wannan wuri mai ƙarewa yana iya isa daga waje-da-mai-masaukin baki — saboda
-mai aiki ya sanya OmniRoute a bayan nginx/Cloudflare/Tailscale tunnel kuma JWT ya fita, ko kuma an saita
-tabbatarwa ba daidai ba — mai kai hari yana juya "kiran API" zuwa "gudanar da umarni a kan mai masaukin baki"
-(aiwatar da lambar nesa). OmniRoute yana rufe wannan ta hanyar tilasta **binciken mai masaukin baki na loopback ba tare da sharadi ba, kafin kowane binciken tabbatarwa**, a kan kowace
-hanya mai iya haifarwa: alamar da ta fita ta hanyar tunnel har yanzu ba za ta iya kaiwa ga haifarwa ba.
+**Abin da GHSA-fhh6-4qxv-rpqj yake nufi (ajin harin):** sabar gudanarwa/agent
+tana bayyana endpoint da ke ƙaddamar da subprocess (`npm install`, `node`, browser,
+proxy, `git`, `tar`, …). Idan ana iya isa ga wannan endpoint daga wajen host — saboda
+mai gudanarwa ya sanya OmniRoute a bayan tunnel na nginx/Cloudflare/Tailscale kuma JWT
+ya ɓulla, ko kuma an yi kuskuren saita auth — maharin zai sauya “kiran API” zuwa “gudanar da
+umurni a kan host” (aiwatar da lamba daga nesa). OmniRoute yana toshe wannan ta hanyar tilasta
+**duba mai masaukin loopback ba tare da wani sharaɗi ba, kafin duk wani duba na auth**, a kan kowace
+hanya mai iya ƙaddamar da process: ko da token ya ɓulla ta tunnel, har yanzu ba zai iya isa wurin ƙaddamarwar ba.
 
-**Cikakken saitin LOCAL_ONLY.** Tushen hukuma shine
+**Cikakken rukunin LOCAL_ONLY.** Madogara mai iko ita ce
 `LOCAL_ONLY_API_PREFIXES` / `LOCAL_ONLY_API_PATTERNS` a cikin
-`src/server/authz/routeGuard.ts`; teburin da ke ƙasa yana nuna halin yanzu.
-Ƙofar `check-route-guard-membership` tana lissafa kowane `route.ts` a ƙarƙashin
-prefixes masu iya haifarwa kuma tana kasa CI idan ba a rarraba kowane ɗaya a matsayin local-only ba.
+`src/server/authz/routeGuard.ts`; teburin da ke ƙasa yana nuna halin da ake ciki yanzu. Ƙofar
+`check-route-guard-membership` tana lissafa kowane `route.ts` da ke ƙarƙashin
+prefixes masu iya ƙaddamar da process, kuma CI zai gaza idan ba a ayyana kowannensu a matsayin local-only ba.
 
-| Prefix / pattern                                                                                         | Dalilin da yasa yake na gida kawai                                                                                |
-| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `/api/mcp/`                                                                                              | Sabar MCP — tana fara gadoji na stdio + masu sarrafa SSE                                                          |
-| `/api/cli-tools/runtime/`                                                                                | Lokacin aiki na kayan aikin CLI — yana aiwatar da kowane lambar plugin                                            |
-| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | Masu rubuta saitunan kowane kayan aiki waɗanda zasu iya taɓa binaries/saitunan kayan aiki a kan mai masaukin baki |
-| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | Fara `getCliRuntimeStatus()` iri ɗaya kamar 'yan'uwa shida na sama (GHSA-35fw-cv32-2373)                          |
-| `/api/cli-tools/{all-statuses,status,detect}`                                                            | Binciken kayan aikin CLI — suna fara `command -v` / `--version` ga kowane kayan aiki (GHSA-35fw-cv32-2373)        |
-| `/api/cli-tools/antigravity-mitm`                                                                        | Sarrafa wakili na Antigravity MITM (yana fara/nuna wakili na tsarin)                                              |
-| `/api/modality-bridge/video/`                                                                            | Binciken lokacin aiki na Gadar Bidiyo mai amintaccen-loopback da gadar cirewa ta ciki                             |
-| `/api/services/`                                                                                         | Ayyukan da aka saka (9Router / CLIProxy / Bifrost / Mux / Dario) — `npm install` + fara                           |
-| `/dashboard/providers/services/`                                                                         | Wakili mai juyawa zuwa UIs na ayyukan da aka saka                                                                 |
-| `/api/tunnels/cloudflared`                                                                               | Yana shigar/fara binary na cloudflared                                                                            |
-| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | Yana shigar/sarrafa tailscaled a kan mai masaukin baki                                                            |
-| `/api/copilot/`                                                                                          | Direban LLM mara tantancewa — CLI-kaɗai ta tsoho                                                                  |
-| `/api/tools/agent-bridge/`                                                                               | AgentBridge — yana fara sabar MITM + gyare-gyaren DNS                                                             |
-| `/api/tools/traffic-inspector/`                                                                          | Mai duba zirga-zirga — mai sauraron http-proxy + wakili na tsarin                                                 |
-| `/api/settings/mitm`                                                                                     | Yana kunna katsewar MITM (yanayin wakili na matakin tsarin)                                                       |
-| `/api/issue-agent/`                                                                                      | Wakilin matsala — yana fara kayan aikin gida akan repo                                                            |
-| `/api/plugins/`, `/api/plugins`                                                                          | Plugins — yana ɗora/aiwatar ta hanyar `worker_threads` + `child_process`                                          |
-| `/api/middleware/`                                                                                       | Middleware na mai amfani — yana ɗora/aiwatar lambar mai aiki a cikin tsari                                        |
-| `/api/system/version`                                                                                    | Sabuntawa ta atomatik (POST kawai; GET/HEAD/OPTIONS an cire su) — yana fara `git checkout` + `npm install`        |
-| `/api/db-backups/exportAll`                                                                              | Yana fara `tar` don ajiyar fitarwa                                                                                |
-| `/api/local/`                                                                                            | Masu ƙaddamar da gida na dannawa 1 (Redis a yau) — yana fara `podman`/`docker`                                    |
-| `/api/headroom/start`, `/api/headroom/stop`                                                              | Rayuwar wakili na Headroom — yana fara CLI na python / yana nuna PID                                              |
-| `/api/jobs`, `/api/jobs/`                                                                                | Sarrafa mai gudanar da aiki — yana aiwatar da aikin da aka tsara a gefen mai masaukin baki                        |
-| `/api/oauth/cursor/auto-import`                                                                          | `execFile("which", ["cursor"])` kafin shigo da takardun shaida                                                    |
-| `/api/oauth/kiro/auto-import`                                                                            | Yana karanta fayilolin takardun shaida na Kiro CLI daga mai masaukin baki                                         |
-| `/api/skills/collect/`                                                                                   | Tarin fasaha — yana gano/shigar kayan aikin gida                                                                  |
-| `/api/skills/install`, `/api/skills/executions`                                                          | Rajistar mai sarrafa fasaha + aiwatarwa — isa ga fara akwatin yashi (GHSA-jx89)                                   |
-| `/api/discovery/`                                                                                        | Binciken gano hanyar sadarwa/mai bayarwa na gida                                                                  |
-| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | Yana haifar da mai bincike mai cikakken kai + zaman VNC don shiga ta mu'amala                                     |
-| `/api/acp/agents`                                                                                        | ACP — yana gano kuma yana haifar da binaries na wakili na CLI na gida                                             |
-| `/api/resilience/connections`                                                                            | JSON na juriya na kowane asusu (sanyaya, mai karya, kullewa). HTML na dashboard ba na gida bane kawai.            |
-| `/api/providers/cursor/agent-availability`                                                               | Binciken shigarwa na dashboard — yana haifar da `cursor-agent status --format json`                               |
-| `/api/providers/{id}/login` (regex)                                                                      | Yana ƙaddamar da Playwright Chromium mai cikakken kai don shiga ta kuki na yanar gizo                             |
-| `/api/providers/volcengine-plan/connect` (regex)                                                         | Gudanar da hannu mai cikakken kai + shiga ta atomatik ta waya/SMS bisa zaman (yana haifar da Playwright)          |
-| `/api/providers/{id}/refresh-cursor` (regex)                                                             | Sabunta zaman Cursor na hannu — yana motsa `cursor-agent`                                                         |
-| `/api/providers/{id}/chatgpt-web-codex-doctor` (regex)                                                   | Yana gano shigarwar Codex CLI na gida (yana haifar da binary)                                                     |
+| Fara / tsari                                                                                             | Dalilin da ya sa na gida kawai ne                                                                                              |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `/api/mcp/`                                                                                              | Sabar MCP — tana ƙaddamar da hanyoyin haɗin stdio + masu sarrafa SSE                                                           |
+| `/api/cli-tools/runtime/`                                                                                | Yanayin gudanar da kayan aikin CLI — yana aiwatar da kowace lambar plugin                                                      |
+| `/api/cli-tools/{omp,letta,grok-build,forge,jcode,qwen}-settings`                                        | Masu rubuta saituna na kowane kayan aiki waɗanda za su iya taɓa binaries/config na kayan aikin a kan na'urar mai masaukin baki |
+| `/api/cli-tools/{claude,cline,codewhale,codex,crush,deepseek-tui,droid,kilo,openclaw,pi,smelt}-settings` | Ƙaddamarwar `getCliRuntimeStatus()` iri ɗaya da ta sauran shida da ke sama (GHSA-35fw-cv32-2373)                               |
+| `/api/cli-tools/{all-statuses,status,detect}`                                                            | Binciken jerin kayan aikin CLI — yana ƙaddamar da `command -v` / `--version` ga kowane kayan aiki (GHSA-35fw-cv32-2373)        |
+| `/api/cli-tools/antigravity-mitm`                                                                        | Sarrafa wakilin MITM na Antigravity (yana ƙaddamarwa/daidaita wakilin tsarin)                                                  |
+| `/api/modality-bridge/video/`                                                                            | Binciken yanayin gudanar da Video Bridge na trusted-loopback mai tsauri da gadar cire bayanai ta ciki                          |
+| `/api/services/`                                                                                         | Sabis da aka haɗa a ciki (9Router / CLIProxy / Bifrost / Mux / Dario) — `npm install` + ƙaddamarwa                             |
+| `/dashboard/providers/services/`                                                                         | Wakili na baya zuwa UI na sabis da aka haɗa a ciki                                                                             |
+| `/api/tunnels/cloudflared`                                                                               | Yana girka/ƙaddamar da binary na cloudflared                                                                                   |
+| `/api/tunnels/tailscale/{install,enable,disable,login,start-daemon}`                                     | Yana girka/sarrafa tailscaled a kan na'urar mai masaukin baki                                                                  |
+| `/api/copilot/`                                                                                          | Direban LLM marar tantancewa — CLI kawai ta tsohuwa                                                                            |
+| `/api/tools/agent-bridge/`                                                                               | AgentBridge — yana ƙaddamar da sabar MITM + gyare-gyaren DNS                                                                   |
+| `/api/tools/traffic-inspector/`                                                                          | Traffic Inspector — mai sauraron http-proxy + wakilin tsarin                                                                   |
+| `/api/settings/mitm`                                                                                     | Yana kunna katsalandan na MITM (yanayin wakili na matakin tsarin)                                                              |
+| `/api/issue-agent/`                                                                                      | Wakilin matsala — yana ƙaddamar da kayan aikin gida a kan repo                                                                 |
+| `/api/plugins/`, `/api/plugins`                                                                          | Plugins — lodawa/aiwatarwa ta `worker_threads` + `child_process`                                                               |
+| `/api/middleware/`                                                                                       | Middleware na mai amfani — yana lodawa/aiwatar da lambar mai gudanarwa a cikin tsari                                           |
+| `/api/system/version`                                                                                    | Sabuntawa ta atomatik (POST kawai; GET/HEAD/OPTIONS an keɓe su) — yana ƙaddamar da `git checkout` + `npm install`              |
+| `/api/db-backups/exportAll`                                                                              | Yana ƙaddamar da `tar` don rumbun fitarwa                                                                                      |
+| `/api/local/`                                                                                            | Masu ƙaddamarwa na gida da dannawa 1 (Redis a yanzu) — yana ƙaddamar da podman/docker                                          |
+| `/api/headroom/start`, `/api/headroom/stop`                                                              | Zagayowar rayuwar wakilin Headroom — yana ƙaddamar da python CLI / aika sigina ga PID                                          |
+| `/api/jobs`, `/api/jobs/`                                                                                | Sarrafa mai gudanar da ayyuka — yana aiwatar da aikin da aka tsara a na'urar mai masaukin baki                                 |
+| `/api/oauth/cursor/auto-import`                                                                          | `execFile("which", ["cursor"])` kafin shigo da bayanan shaida                                                                  |
+| `/api/oauth/kiro/auto-import`                                                                            | Yana karanta fayilolin bayanan shaidar Kiro CLI daga na'urar mai masaukin baki                                                 |
+| `/api/skills/collect/`                                                                                   | Tattara ƙwarewa — yana gano/girka kayan aikin gida                                                                             |
+| `/api/skills/install`, `/api/skills/executions`                                                          | Rijistar mai sarrafa ƙwarewa + aiwatarwa — isa ga ƙaddamar da kwantenar sandbox (GHSA-jx89)                                    |
+| `/api/discovery/`                                                                                        | Binciken gano hanyar sadarwar gida/mai bayarwa                                                                                 |
+| `/api/vnc-session` (`VNC_ROUTE_PREFIX`)                                                                  | Yana ƙaddamar da burauza mai mu'amalar gani + zaman VNC don shiga ta hulɗa                                                     |
+| `/api/acp/agents`                                                                                        | ACP — yana gano tare da ƙaddamar da fayilolin binary na wakilin CLI na gida                                                    |
+| `/api/resilience/connections`                                                                            | JSON na juriya na kowane asusu (lokacin jira, breaker, kullewa). HTML na dashboard ba na gida-kawai ba ne.                     |
+| `/api/providers/cursor/agent-availability`                                                               | Binciken tunatarwar shigarwa na dashboard — yana ƙaddamar da `cursor-agent status --format json`                               |
+| `/api/providers/{id}/login` (regex)                                                                      | Yana ƙaddamar da Playwright Chromium mai mu'amalar gani don shiga ta kukin yanar gizo                                          |
+| `/api/providers/volcengine-plan/connect` (regex)                                                         | Tsarin hannu mai mu'amalar gani + shiga ta atomatik da waya/SMS bisa zaman (yana ƙaddamar da Playwright)                       |
+| `/api/providers/{id}/refresh-cursor` (regex)                                                             | Sabunta zaman Cursor da hannu — yana tunatar da `cursor-agent`                                                                 |
+| `/api/providers/{id}/chatgpt-web-codex-doctor` (regex)                                                   | Yana gano matsalolin shigarwar Codex CLI ta gida (yana ƙaddamar da fayil ɗin binary)                                           |
 
-**Martani akan keta doka:** `403 LOCAL_ONLY`
+**Amsa idan an karya doka:** `403 LOCAL_ONLY`
 
-#### Keɓancewar sarrafa-iyaka
+#### Keɓantawar iyakar gudanarwa
 
-Wani ɓangare na hanyoyin LOCAL_ONLY ANA IYA samun damar shiga daga waje idan kuma kawai idan buƙatar ta ɗauki `Authorization: Bearer <api-key>` wanda bayanan sa sun haɗa da iyakokin `manage` (ko `admin`). An keɓance keɓancewar a fili ta kowane hanya ta hanyar `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` don haka tsoho ga kowace sabuwar hanyar LOCAL_ONLY ya kasance strict-loopback. Buƙatun da ba a tantance su ba da buƙatun da ke da maɓallan da ba na sarrafawa ba har yanzu ana ƙi su da `403 LOCAL_ONLY`.
+Hakanan ANA IYA samun dama ga wasu daga cikin hanyoyin LOCAL_ONLY daga adireshin da ba loopback ba idan kuma
+kawai idan buƙatar tana ɗauke da `Authorization: Bearer <api-key>` wanda
+metadata ɗinsa ya ƙunshi iyakar `manage` (ko `admin`). Ana takaita keɓantawar
+a sarari ga kowace hanya ta hanyar `LOCAL_ONLY_MANAGE_SCOPE_BYPASS_PREFIXES` domin
+tsohon tsarin duk wata sabuwar hanyar LOCAL_ONLY ya ci gaba da zama tsauraran-loopback. Buƙatun
+da ba su da tantancewa da buƙatun da ke da maɓallan da ba na gudanarwa ba har yanzu ana ƙin su da
+`403 LOCAL_ONLY`.
 
-A yau, prefix ɗin da za a iya ketarewa kawai shine `/api/mcp/`. `/api/cli-tools/runtime/` da `/api/services/` an cire su da gangan saboda suna iya haifar da ƙananan matakai masu yawa (`npm install`, `node`), wanda shine ainihin nau'in CVE da matakin LOCAL_ONLY ke wanzu don hanawa.
+A halin yanzu, prefix ɗaya tilo da za a iya keɓancewa shi ne `/api/mcp/`. `/api/cli-tools/runtime/` da
+`/api/services/` an cire su da gangan saboda za su iya ƙaddamar da kowane irin
+subprocess (`npm install`, `node`), wanda shi ne ainihin rukunin CVE da
+matakin LOCAL_ONLY yake wanzuwa domin hana shi.
 
-**#7895 — `mcp:connect` iyakancewar iyaka:** keɓancewar `/api/mcp/` HAKA KUMA yana karɓar maɓallin Bearer mai riƙe da iyakancewar `mcp:connect` (`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`), wanda aka bincika ta hanyar `hasMcpConnectOrManageScope()` a `src/server/authz/policies/management.ts`. An iyakance wannan zuwa `/api/mcp/` KAWAI — `mcp:connect` baya ba da komai akan kowace hanyar sarrafawa (ciki har da kowane sauran prefix na LOCAL_ONLY bypass, idan an taɓa ƙara ɗaya), kuma an cire shi da gangan daga `MANAGEMENT_API_KEY_SCOPES`. Maɓallin da ke riƙe da `manage`/`admin` har yanzu yana wucewa ta keɓancewar kamar yadda yake a baya; `mcp:connect` madadin ne mai ƙarancin gata ga masu kiran MCP na nesa waɗanda bai kamata su buƙaci damar sarrafawa mai faɗi ba.
+**#7895 — ƙuntatacciyar iyakar `mcp:connect`:** keɓantawar `/api/mcp/` KUMA tana karɓar
+maɓallin Bearer mai ɗauke da ƙuntatacciyar iyakar `mcp:connect`
+(`src/shared/constants/managementScopes.ts::MCP_CONNECT_SCOPE`), wanda ake dubawa ta hanyar
+`hasMcpConnectOrManageScope()` a cikin `src/server/authz/policies/management.ts`.
+Wannan ya takaita ga `/api/mcp/` KAWAI — `mcp:connect` ba ya ba da wani izini a kan kowace
+hanyar gudanarwa (ciki har da duk wani prefix na keɓancewar LOCAL_ONLY, idan aka taɓa
+ƙara wani), kuma an cire shi da gangan daga
+`MANAGEMENT_API_KEY_SCOPES`. Maɓalli mai ɗauke da `manage`/`admin` har yanzu yana wuce
+keɓantawar daidai kamar da; `mcp:connect` wani zaɓi ne mai ƙaramin gata
+ga masu kira daga nesa masu amfani da MCP kawai waɗanda bai kamata su buƙaci faɗaɗɗiyar damar gudanarwa ba.
 
-| Buƙata                                                | Hanya                      | Sakamako                  |
-| :---------------------------------------------------- | :------------------------- | :------------------------ |
-| Ba-loopback, babu Bearer                              | `/api/mcp/*`               | `403 LOCAL_ONLY`          |
-| Ba-loopback, Bearer tare da iyakokin `manage`         | `/api/mcp/*`               | Bada izini                |
-| Ba-loopback, Bearer tare da iyakokin `mcp:connect`    | `/api/mcp/*`               | Bada izini                |
-| Ba-loopback, Bearer ba tare da `manage`/`mcp:connect` | `/api/mcp/*`               | `403 LOCAL_ONLY`          |
-| Ba-loopback, Bearer tare da iyakokin `mcp:connect`    | `/api/cli-tools/runtime/*` | `403 LOCAL_ONLY`          |
-| Ba-loopback, Bearer tare da iyakokin `manage`         | `/api/cli-tools/runtime/*` | `403 LOCAL_ONLY`          |
-| Loopback, kowane/babu Bearer                          | kowane LOCAL_ONLY          | Bada izini (ƙofa ta wuce) |
+| Buƙata                                                      | Hanya                      | Sakamako                  |
+| ----------------------------------------------------------- | -------------------------- | ------------------------- |
+| Ba loopback ba, babu Bearer                                 | `/api/mcp/*`               | 403 LOCAL_ONLY            |
+| Ba loopback ba, Bearer mai iyakar `manage`                  | `/api/mcp/*`               | A yarda                   |
+| Ba loopback ba, Bearer mai iyakar `mcp:connect`             | `/api/mcp/*`               | A yarda                   |
+| Ba loopback ba, Bearer ba tare da `manage`/`mcp:connect` ba | `/api/mcp/*`               | 403 LOCAL_ONLY            |
+| Ba loopback ba, Bearer mai iyakar `mcp:connect`             | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY            |
+| Ba loopback ba, Bearer mai iyakar `manage`                  | `/api/cli-tools/runtime/*` | 403 LOCAL_ONLY            |
+| Loopback, kowane/babu Bearer                                | kowane LOCAL_ONLY          | A yarda (shingen ya bari) |
 
-#### Jagorar mai aiki & bincike
+#### Jagorar mai gudanarwa & dubawa
 
-Idan ka gudanar da OmniRoute a bayan wani reverse proxy ko rami (nginx, Caddy, Cloudflare Tunnel, Tailscale, Ngrok), binciken loopback har yanzu yana kare hanyoyin da ke iya haifar da sama — buƙatar da adireshin abokin ciniki ba loopback bane ana ƙi ta da `403 LOCAL_ONLY` **kafin tantancewa ta gudana**, don haka JWT da aka fallasa ba zai iya kaiwa ga haifarwa ba. Akwai nauye-nauye guda biyu na mai aiki:
+Idan kuna gudanar da OmniRoute a bayan reverse proxy ko tunnel (nginx, Caddy, Cloudflare
+Tunnel, Tailscale, Ngrok), binciken loopback har yanzu yana kare hanyoyin da za su iya
+ƙaddamar da abubuwan da ke sama — buƙatar da adireshin abokin hulɗarta ba loopback ba ne ana ƙin ta da
+`403 LOCAL_ONLY` **kafin tantancewa ta gudana**, don haka JWT da ya fallasa ba zai iya kaiwa ga ƙaddamarwa ba. Har yanzu
+akwai nauyin mai gudanarwa guda biyu:
 
-- **Kada ka "gyara" 403 ta hanyar ƙirƙirar IP na abokin ciniki a matsayin loopback.** Saita `X-Forwarded-For: 127.0.0.1`, ko wani proxy da ke sake rubuta adireshin tushe zuwa loopback, yana sake buɗe ainihin nau'in RCE da wannan matakin ke rufewa. Nuna dashboard/API ta hanyar proxy — kada ka taɓa hanyoyin da ke iya haifarwa.
-- **Kiyaye ƙarancin wucewar iyakokin sarrafawa.** Kawai `/api/mcp/` ne za a iya wucewa, kuma kawai tare da maɓallin API mai iyakokin `manage`. `SPAWN_CAPABLE_PREFIXES` ba za a taɓa ƙara su a cikin jerin wucewa ba — zod schema yana ƙi su kuma `isLocalOnlyBypassableByManageScope` yana hana su a lokacin gudu (tsaro mai zurfi), wanda shine abin da dashboard ke nufi da "ba za a iya sanya shi mai wucewa ba". Dynamic-segment da static-path spawn-capable routes a ƙarƙashin `/api/providers/` (misali `/login`, `/refresh-cursor`) an rufe su ta hanyar regex-based `SPAWN_CAPABLE_PATTERNS` / `SPAWN_CAPABLE_PATTERN_ANCESTORS` companion a `src/shared/constants/spawnCapablePrefixes.ts`, ba ta hanyar jerin `SPAWN_CAPABLE_PREFIXES` ba — jerin da ba su da faɗi za su buƙaci rufe dukkan prefix na `/api/providers/` don kama su, wanda zai faɗaɗa bishiyar hanya da dashboards na nesa ke amfani da su don provider CRUD.
+- **Kada a “gyara” kuskuren 403 ta hanyar ƙirƙirar IP ɗin abokin ciniki na bogi a matsayin loopback.** Saita
+  `X-Forwarded-For: 127.0.0.1`, ko amfani da proxy da ke sake rubuta adireshin tushe zuwa
+  loopback, yana sake buɗe ainihin ajin RCE da wannan matakin yake rufewa. Bayyana
+  dashboard/API ta cikin proxy — kada a taɓa bayyana routes masu ikon spawn.
+- **A taƙaita ketarewar manage-scope zuwa mafi ƙaranci.** `/api/mcp/` kaɗai ne za a iya
+  ketarewa, kuma sai da API key mai scope na `manage`. Ba za a taɓa iya
+  ƙara `SPAWN_CAPABLE_PREFIXES` cikin jerin ketarewa ba — zod schema yana ƙin su kuma
+  `isLocalOnlyBypassableByManageScope` yana hana su a runtime (kariyar matakai da yawa),
+  wanda shi ne abin da dashboard ke nufi da “ba za a iya sanya su zama masu iya ketarewa ba”. Runtime
+  snapshot loader ma yana cire irin waɗannan entries daga stored settings row, sannan
+  legacy JSON import (`/api/settings/import-json`) ba ya taɓa rubuta bypass keys.
+  Dole ne kowane entry na `LOCAL_ONLY_API_PREFIXES` ya kasance ko dai cikin deny-list ko
+  an duba shi a matsayin wanda ya cancanci ketarewa (`tests/unit/authz/local-only-bypass-spawn-denylist.test.ts`). Routes masu
+  dynamic-segment da static-path waɗanda ke da ikon spawn a ƙarƙashin `/api/providers/` (misali `/login`,
+  `/refresh-cursor`) suna ƙarƙashin kariyar abokan regex-based `SPAWN_CAPABLE_PATTERNS` /
+  `SPAWN_CAPABLE_PATTERN_ANCESTORS` da ke cikin
+  `src/shared/constants/spawnCapablePrefixes.ts`, ba flat
+  `SPAWN_CAPABLE_PREFIXES` array ba — dole ne flat array ɗin ya ƙunshi
+  dukkan prefix na `/api/providers/` domin gano su, wanda zai faɗaɗa kariyar route tree
+  fiye da kima alhali remote dashboards suna amfani da shi bisa ƙa’ida don CRUD na provider.
 
-**Binciken damar shiga** — don tabbatar da cewa babu wani abu daga waje da ke kaiwa ga waɗannan hanyoyin:
+**Duba damar shiga** — don tabbatar da cewa babu wani abu daga wajen host da ke isa waɗannan routes:
 
-- Buɗe **Authorization Inventory** a kan `/dashboard/settings/security`: yana nuna
-  jerin LOCAL_ONLY prefix kai tsaye, waɗanne prefixes ne za a iya wucewa, da kuma
-  saitin spawn-capable ("ba za a iya sanya shi mai wucewa ba") a lokacin tattarawa.
-- Bincika reverse-proxy / access logs ɗinka don prefixes ɗin da ke sama tare da
-  adireshin abokin ciniki wanda ba loopback ba. Duk wani irin wannan bugun da ya dawo da `200` maimakon
-  `403 LOCAL_ONLY` yana nufin proxy yana ɓoye ainihin IP na abokin ciniki — gyara proxy ɗin.
-- `403 LOCAL_ONLY` a cikin logs na OmniRoute don ɗaya daga cikin waɗannan hanyoyin shine mai gadi
-  yana aiki kamar yadda aka yi niyya, ba kuskure ba ne don dannewa.
+- Buɗe **Authorization Inventory** a `/dashboard/settings/security`: yana nuna
+  live LOCAL_ONLY prefix list, waɗanne prefixes ne za a iya ketarewa, da compile-time
+  spawn-capable set (“ba za a iya sanya su zama masu iya ketarewa ba”).
+- Yi bincike da grep a cikin reverse-proxy / access logs ɗinku don prefixes na sama da ke tare da
+  adireshin abokin ciniki wanda ba loopback ba ne. Duk wani irin request da ya dawo da `200` maimakon
+  `403 LOCAL_ONLY` yana nufin proxy yana ɓoye ainihin IP ɗin abokin ciniki — gyara proxy ɗin.
+- `403 LOCAL_ONLY` a cikin logs na OmniRoute ga ɗaya daga cikin waɗannan paths yana nuna guard
+  yana aiki yadda aka tsara, ba kuskuren da ya kamata a danne ba.
 
 ### Mataki na 2 — ALWAYS_PROTECTED
 
-**An tilasta shi ta:** `isAlwaysProtectedPath(path)` → tsallake `requireLogin=false` bypass
-**Bypass:** Babu lokacin da `requireLogin=false`; JWT koyaushe ana buƙata
+**Wanda ke tilastawa:** `isAlwaysProtectedPath(path)` → tsallake bypass na `requireLogin=false`
+**Ketarewa:** Babu idan `requireLogin=false`; ana buƙatar JWT koyaushe
 
-Waɗannan hanyoyin suna da lalacewa ko ba za a iya juyawa ba. Barin su a cikin shigarwa "ba tare da kalmar sirri ba"
-zai nufin cewa duk wanda ke kan LAN ɗaya zai iya share database ko kashe
-tsarin sabar.
+Waɗannan routes suna lalata bayanai ko kuma ba za a iya juyar da ayyukansu ba. Barin su a cikin
+installation na “babu-password” zai nuna cewa duk wanda ke LAN ɗaya zai iya goge database ko kashe
+server process.
 
-| Hanyar                                    | Dalili                                                                |
-| :---------------------------------------- | :-------------------------------------------------------------------- |
-| `/api/shutdown`                           | Yana dakatar da tsarin sabar                                          |
-| `/api/settings/database`                  | Fitar da database, shigo da shi, da sharewa                           |
-| `/api/db-backups`                         | Cikakken damar adana database                                         |
-| `/api/settings/export-json`               | Yana fitar da cikakken blob na saituna (ciki har da sirri)            |
-| `/api/settings/import-json`               | Yana maye gurbin cikakken blob na saituna                             |
-| `/api/providers/health-autopilot/actions` | Yana aiwatar da ayyukan gyaran autopilot                              |
-| `/api/settings/obsidian`                  | Yana ƙirƙira creds na WebDAV masu sake amfani don kowane tushen vault |
+| Path                                      | Dalili                                                   |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `/api/shutdown`                           | Yana dakatar da server process                           |
+| `/api/settings/database`                  | Export, import, da goge database                         |
+| `/api/db-backups`                         | Cikakken damar shiga archive na database backup          |
+| `/api/settings/export-json`               | Yana export na cikakken settings blob (har da secrets)   |
+| `/api/settings/import-json`               | Yana maye gurbin cikakken settings blob                  |
+| `/api/providers/health-autopilot/actions` | Yana aiwatar da ayyukan gyaran autopilot                 |
+| `/api/settings/obsidian`                  | Yana ƙirƙirar reusable WebDAV creds ga kowane vault root |
 
-**Martani akan keta doka:** `401 Authentication required`
+**Amsar da ake bayarwa idan an karya doka:** `401 Authentication required`
 
-`/api/settings/obsidian` ya rufe ɗan sa `/webdav`: `POST` yana nuna sabis ɗin fayil na WebDAV —
-wanda ke aiki ta hanyar Node layer na musamman kafin Next.js, a waje da wannan bututun — zuwa tushen da mai kira ya zaɓa
-kuma yana maimaita sabbin Basic credentials da aka ƙirƙira, `DELETE` yana juyar da su, kuma iyayen `POST` yana adana
-token na Obsidian REST API. GHSA-62vw kawai ya ɓoye bayyanar kalmar sirri ta `GET`; fitarwa har yanzu
-yana kan matakin buɗe-kuskure (GHSA-7pq4-8pvv-rx7r). `enableObsidianVaultSync()` ƙari
-yana ƙin vault wanda yake, yana zaune a ciki, ko ya ƙunshi kundin adireshi na bayanai.
+`/api/settings/obsidian` yana ƙunshe da child ɗinsa `/webdav`: `POST` yana nuna WebDAV file service —
+wanda custom Node layer ke bayarwa kafin Next.js, a wajen wannan pipeline — zuwa root da caller ya zaɓa
+kuma yana mayar da sabbin Basic credentials da aka ƙirƙira, `DELETE` yana sauya su, yayin da parent `POST` ke adana
+Obsidian REST API token. GHSA-62vw ya ɓoye bayyanar password ta `GET` ne kawai; ƙirƙirar credentials ɗin
+har yanzu tana kan fail-open tier (GHSA-7pq4-8pvv-rx7r). `enableObsidianVaultSync()` kuma
+yana ƙin vault idan shi ne data directory, yana cikinsa, ko kuma yana ɗauke da data directory.
 
-### Sabon shigarwa bootstrap loopback-only ne — ta ainihin abokin ciniki, ba `Host` ba
+### Bootstrap na sabon installation na loopback ne kawai — bisa ainihin peer, ba `Host` ba
 
-Ba tare da an saita kalmar sirri ta gudanarwa ba (kuma babu `INITIAL_PASSWORD`), `isAuthRequired()` a cikin
-`src/shared/utils/apiAuth.ts` yana buɗe bootstrap mara izini **kawai don abokan ciniki na loopback**.
-Ana yanke shawarar Loopback daga amintattun siginar abokin ciniki, a jere: ainihin abokin ciniki na TCP mai alamar token
-(`PEER_IP_HEADER` + `VIA_PROXY_HEADER`, abin da manufar ke gani), hukuncin `AUTHZ_HEADER_PEER_LOCALITY` na bututun kanta
-(abin da masu sarrafa hanya ke gani, amintacce ne kawai yayin da `OMNIROUTE_PEER_STAMP_TOKEN` aka saita), ko ainihin abokin ciniki na soket don masu kira kai tsaye. `Host` /
-`nextUrl.hostname` ba a taɓa tuntubar su ba, kuma rubutun kalmar sirri na farko
-(`POST /api/settings/require-login`) yana ƙarƙashin takura ɗaya maimakon buɗe wa kowane
-abokin ciniki na hanyar sadarwa (GHSA-7pq4-8pvv-rx7r). `managementPolicy` yana wuce hukuncin `peerContext` nasa
-a fili, don haka ainihin (kafin cirewa) headers na buƙatar ba sa yanke shawarar hakan.
+Idan ba a saita management password ba (kuma babu `INITIAL_PASSWORD`), `isAuthRequired()` a cikin
+`src/shared/utils/apiAuth.ts` yana barin anonymous bootstrap a buɗe **ga loopback peers kawai**.
+Ana tantance loopback daga amintattun peer signals, bisa wannan jeri: ainihin TCP peer mai alamar token
+(`PEER_IP_HEADER` + `VIA_PROXY_HEADER`, abin da policy ke gani), hukuncin pipeline ɗin kansa na
+`AUTHZ_HEADER_PEER_LOCALITY` (abin da route handlers ke gani, wanda ake amincewa da shi kawai yayin da
+aka saita `OMNIROUTE_PEER_STAMP_TOKEN`), ko ainihin socket peer ga direct callers. Ba a taɓa duba `Host` /
+`nextUrl.hostname` ba, kuma rubuta password na farko
+(`POST /api/settings/require-login`) yana ƙarƙashin wannan ƙuntatawar maimakon kasancewa a buɗe ga kowane
+network peer (GHSA-7pq4-8pvv-rx7r). `managementPolicy` yana tura hukuncin `peerContext` nasa
+ƙasa kai tsaye, don haka headers na ORIGINAL request (kafin strip) ba sa yanke hukuncin.
 
 ### Mataki na 3 — MANAGEMENT (na asali)
 
-Duk sauran hanyoyin gudanarwa. Ana buƙatar izini sai dai idan an saita `requireLogin=false`.
-Tokens na CLI na iya tantance waɗannan hanyoyin (loopback + ingantaccen HMAC).
+Duk sauran management routes. Ana buƙatar auth sai dai idan an saita
+`requireLogin=false`. CLI tokens za su iya authenticate waɗannan routes (loopback + ingantaccen HMAC).
 
 ## Tsarin tantancewa
 

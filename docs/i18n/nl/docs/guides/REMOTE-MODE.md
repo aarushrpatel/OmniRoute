@@ -245,14 +245,21 @@ actief wordt weergegeven.
 
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
-#   ↳ geeft het geheim EENMALIG weer — kopieer het nu
+#   ↳ toont het geheim EENMALIG — kopieer het nu
 omniroute tokens list                 # gemaskeerd: id, naam, bereik, voorvoegsel, status, vervaldatum
 omniroute tokens revoke <id|prefix>   # onmiddellijk intrekken
-omniroute tokens scopes               # de drie bereiken uitleggen
+omniroute tokens scopes               # de drie bereiken toelichten
 ```
 
-`tokens`-opdrachten vereisen een **admin**-referentie. Je kunt tokens ook beheren in
+Voor `tokens`-opdrachten zijn **admin**-referenties vereist. Je kunt tokens ook beheren in
 het dashboard onder **Instellingen → Toegangstokens** (aanmaken, intrekken, eenmalig kopiëren).
+
+Een token kan nooit worden uitgegeven met meer rechten dan de maker ervan heeft. Een
+`admin`-token kan alleen door de beheerder worden aangemaakt — via de dashboardsessie, de
+lokale CLI op de server zelf, `omniroute connect` met het wachtwoord, of een
+instantie waarop aanmelden is uitgeschakeld. Machinereferenties (een `admin`-toegangstoken
+of een API-sleutel met het bereik `manage`/`admin`) kunnen alleen `write`- en `read`-
+tokens uitgeven; een aanvraag met `--scope admin` retourneert `403`.
 
 ---
 

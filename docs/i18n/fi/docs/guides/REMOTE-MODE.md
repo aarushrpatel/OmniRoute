@@ -252,14 +252,21 @@ yhteys näkyy aktiivisena.
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
 #   ↳ tulostaa salaisuuden KERRAN — kopioi se nyt
-omniroute tokens list                 # peitetty: tunniste, nimi, käyttöalue, etuliite, tila, vanheneminen
-omniroute tokens revoke <id|prefix>   # mitätöi välittömästi
-omniroute tokens scopes               # selitä kolme käyttöaluetta
+omniroute tokens list                 # peitetty: tunniste, nimi, käyttöoikeusalue, etuliite, tila, vanhenemisaika
+omniroute tokens revoke <id|prefix>   # kumoa välittömästi
+omniroute tokens scopes               # selitä kolme käyttöoikeusaluetta
 ```
 
-`tokens`-komennot edellyttävät **admin**-tunnistetietoa. Voit hallita tunnuksia
-myös hallintapaneelin kohdassa **Asetukset → Käyttöoikeustunnukset** (luo, mitätöi,
-kopioi kerran).
+`tokens`-komennot edellyttävät **admin**-tunnistetietoa. Voit hallita tunnuksia myös
+hallintapaneelin kohdassa **Asetukset → Käyttöoikeustunnukset** (luo, kumoa, kopioi kerran).
+
+Tunnukselle ei voi koskaan myöntää enempää oikeuksia kuin sen luojalla on. Vain
+operaattori voi luoda `admin`-tunnuksen — hallintapaneelin istunnon kautta,
+palvelimella paikallisesti käytettävällä CLI:llä, salasanan kanssa suoritettavalla
+`omniroute connect` -komennolla tai instanssissa, jossa sisäänkirjautuminen on poistettu käytöstä.
+Konetunnistetiedoilla (`admin`-käyttöoikeustunnuksella tai API-avaimella, jolla on
+`manage`- tai `admin`-käyttöoikeusalue) voidaan luoda vain `write`- ja `read`-tunnuksia;
+`--scope admin` -pyyntö palauttaa vastauksen `403`.
 
 ---
 

@@ -245,14 +245,21 @@ hingga koneksi ditampilkan sebagai aktif.
 
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
-#   ↳ mencetak secret SEKALI — salin sekarang
+#   ↳ mencetak rahasia SEKALI — salin sekarang
 omniroute tokens list                 # disamarkan: id, nama, cakupan, prefiks, status, kedaluwarsa
 omniroute tokens revoke <id|prefix>   # cabut segera
 omniroute tokens scopes               # menjelaskan ketiga cakupan
 ```
 
-Perintah `tokens` memerlukan kredensial **admin**. Anda juga dapat mengelola token
-di dasbor pada **Settings → Access Tokens** (buat, cabut, salin-sekali).
+Perintah `tokens` memerlukan kredensial **admin**. Anda juga dapat mengelola token di
+dasbor pada **Settings → Access Tokens** (buat, cabut, hanya dapat disalin sekali).
+
+Token tidak dapat dibuat dengan hak akses yang lebih tinggi daripada yang dimiliki pembuatnya. Token
+`admin` hanya dapat dibuat oleh operator — melalui sesi dasbor,
+CLI lokal di server itu sendiri, `omniroute connect` dengan kata sandi, atau
+instans dengan login yang dinonaktifkan. Kredensial mesin (token akses `admin`,
+atau kunci API dengan cakupan `manage`/`admin`) hanya dapat membuat token `write`
+dan `read`; permintaan `--scope admin` dengan kredensial tersebut akan menghasilkan `403`.
 
 ---
 

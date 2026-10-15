@@ -12,9 +12,9 @@
 
 系統採用**失敗時開放**機制：如果護欄在執行期間擲出例外，登錄檔會記錄錯誤並繼續執行下一個護欄，而不會讓請求失敗。封鎖一律是明確的決定（`block: true`），絕不會因意外而發生。
 
-## 內建護欄 (Built-in Guardrails)
+## 內建防護機制
 
-註冊表會在匯入時自動按優先順序載入六個護欄
+Registry 會在匯入時依優先順序自動載入六個防護機制
 （請參閱 `registry.ts` → `registerDefaultGuardrails()`）：
 
 | 優先順序 | 名稱                | 階段           | 檔案                  |
@@ -26,51 +26,74 @@
 | `20`     | `prompt-injection`  | `preCall`      | `promptInjection.ts`  |
 | `95`     | `credential-masker` | `pre` + `post` | `credentialMasker.ts` |
 
-優先順序數字較小的會**優先**執行。
+優先順序數字較小者會**先**執行。
 
-### 視覺橋接 (`visionBridge.ts`) — 模態橋接 PR-1
+### 視覺橋接器（`visionBridge.ts`）— 模態橋接 PR-1
 
-攔截針對**非視覺模型**且帶有圖片的請求，並在進行上游呼叫之前，將整個請求重新路由至具備視覺能力模型，或是將圖片部分替換為由可設定的視覺模型所產生的文字描述。這讓純文字提供者能夠透明地處理多模態酬載。
+攔截以**非視覺模型**為目標且包含影像的請求，並將整個請求重新路由至具備視覺能力的模型，或在呼叫上游之前，將影像部分替換為由可設定視覺模型產生的文字描述。這可讓純文字提供者透明地處理多模態酬載。
 
 流程：
 
-1. 如果目標模型已經支援視覺，則略過（除非它出現在強制橋接清單 `isVisionBridgeForcedModel` 中）。
-2. 透過 `extractImageParts(messages)` (`visionBridgeHelpers.ts`) 擷取圖片部分，該函式會委派給 `open-sse/utils/mediaParts.ts` 中的**統一媒體偵測器** `detectMediaParts()` — 這是與組合相容性過濾器共用的單一真實來源 (single source of truth)。
-   擷取作業允許清單限於 `replaceImageParts` 可以拼回的頂層部分形狀（擷取↔替換合約）：OpenAI `image_url`、Anthropic base64 `source.type:"base64"`、Anthropic URL `source.type:"url"`，以及 Responses API `input_image`。巢狀命中與僅指示器形狀屬於組合過濾器素材，永遠不會被擷取。
-   若未找到則略過。
-3. 透過 `resolveVisionBridgeRuntimeSettings()` (`src/shared/constants/modalityBridgeDefaults.ts`) 解析執行階段設定：新的 `modalityBridge*` 設定金鑰勝出；舊版的 `visionBridge*` 金鑰維持作為**一個週期的後備方案**（回滾視窗）。當橋接停用時，會在任何媒體走訪之前略過。
-4. 模式選擇器 (`modalityBridgeVisionMode`，見下表) 決定重新路由與描述的其中一項。重新路由會傳回僅對調 `model` 的 `modifiedPayload`，以及中繼資料 `{ rerouted, fromModel, toModel, imagesKept }`。
-5. 描述路徑：將圖片上限設為 `maxImages`，組合任務感知提示詞，查詢描述快取，**以平行方式**呼叫視覺模型 (`Promise.allSettled`)，並在其位置注入 `[Image N]: <description>` 文字部分。描述失敗會產生 `null` 且原始圖片部分會被**保留** (#4012) — 但在每個描述都失敗的組合描述路徑上除外，此時已確認的非視覺上游會取得 `(unavailable — no vision-capable provider connected)` 預留位置 (stub) (#8430)。
-6. 傳回 `modifiedPayload` + 中繼資料 (`imagesProcessed`, `descriptions`, `processingTimeMs`, `visionModel`)。
+1. 如果目標模型已支援視覺，則略過（除非它出現在強制橋接清單 `isVisionBridgeForcedModel` 中）。
+2. 透過 `extractImageParts(messages)`
+   （`visionBridgeHelpers.ts`）擷取影像部分；該函式會委派給 `open-sse/utils/mediaParts.ts` 中的**統一媒體偵測器**
+   `detectMediaParts()`——這是與組合相容性篩選器共用的唯一真實來源。
+   擷取僅允許 `replaceImageParts` 可重新拼接回去之形狀的頂層部分（擷取↔替換契約）：OpenAI
+   `image_url`、Anthropic base64 `source.type:"base64"`、Anthropic URL
+   `source.type:"url"`，以及 Responses API `input_image`。巢狀命中項目與僅指示器形狀屬於組合篩選器的處理範圍，絕不會被擷取。
+   若未找到任何項目則略過。
+3. 透過 `resolveVisionBridgeRuntimeSettings()`
+   （`src/shared/constants/modalityBridgeDefaults.ts`）解析執行階段設定：新的 `modalityBridge*`
+   設定鍵優先；舊版 `visionBridge*` 鍵仍保留作為**單一週期的備援**
+   （回復窗口）。當橋接器停用時，會在任何媒體走訪之前略過。
+4. 模式選擇器（`modalityBridgeVisionMode`，請參閱下表）決定要重新路由或描述。重新路由會傳回僅替換 `model`
+   的 `modifiedPayload`，以及中繼資料 `{ rerouted, fromModel, toModel, imagesKept }`。
+5. 描述路徑：將影像數量限制為 `maxImages`、組合可感知任務的提示詞、查詢描述快取、**平行**
+   呼叫視覺模型（`Promise.allSettled`），並在原位置注入 `[Image N]: <description>` 文字部分。
+   描述失敗時會產生 `null`，且原始影像部分會被**保留**（#4012）——但在組合描述路徑中，若所有描述皆失敗，則已確認的非視覺上游會收到
+   `(unavailable — no vision-capable provider connected)` 預留文字（#8430）。
+6. 傳回 `modifiedPayload` + 中繼資料（`imagesProcessed`、`descriptions`、
+   `processingTimeMs`、`visionModel`）。
 
-#### 模式選擇器 (`modalityBridgeVisionMode`)
+#### 模式選擇器（`modalityBridgeVisionMode`）
 
-| 模式       | 預設值 | 行為                                                                                                                                                            |
-| ---------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto`     | ✔      | 舊版啟發式方法，保持不變 (#6640/#7204)：非組合式/`auto/` 模型會重新路由至最佳視覺模型，除非原始模型已經擁有可用的憑證（此時改用描述）；組合式目標一律進行描述。 |
-| `describe` |        | 一律描述 — 完全略過重新路由區塊；一律由使用者選擇的模型來回答。                                                                                                 |
-| `reroute`  |        | 強制重新路由：略過保留憑證模型護欄。重新路由**目標**憑證護欄仍然適用 — 當不存在可用的視覺目標時，請求會落入描述處理，因此原始圖片絕不會到達純文字後端 (#8430)。 |
+| 模式       | 預設值 | 行為                                                                                                                                                                                    |
+| ---------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto`     | ✔      | 舊版啟發式規則，保持不變（#6640/#7204）：非組合/`auto/` 模型會重新路由至最佳視覺模型，除非原始模型已有可用的認證資料（此時改為描述）；組合目標一律使用描述。                            |
+| `describe` |        | 一律描述——完全略過重新路由區塊；一律由使用者選擇的模型作答。                                                                                                                            |
+| `reroute`  |        | 強制重新路由：略過保留具認證資料模型的防護條件。重新路由**目標**的認證資料防護條件仍然適用——當不存在可用的視覺目標時，請求會退回描述流程，確保原始影像永遠不會抵達純文字後端（#8430）。 |
 
-強制模式會在自動啟發式方法執行**之前**進行短路 (short-circuit)；`auto` 行為與 PR-1 之前的護欄位元組完全相同。
+強制模式會在自動啟發式規則執行**之前**短路；`auto` 行為與 PR-1 前的防護機制逐位元組完全相同。
 
-#### 任務感知描述提示詞 (`modalityBridgeVisionTaskAware`)
+#### API 金鑰範圍（`visionBridgeKeyScope.ts`）
 
-預設為 **true**。`composeVisionPrompt()` (`visionBridgeHelpers.ts`) 會將**最後一則使用者訊息**的文字（截斷至 500 個字元）附加到基礎描述提示詞後面，引導描述朝向使用者實際詢問的內容（codex-vision-proxy 模式），並要求視覺模型轉錄可見文字。當此旗標關閉 — 或沒有使用者文字時 — 則會直接使用未修改的基礎提示詞。
+當呼叫者的 API 金鑰限制 `allowedConnections`、配額集區
+（`allowedQuotas`）或模型（`allowedModels` / `blockedModels` /
+`modelAccessMode: "restricted"` / `disableNonPublicModels`）時，橋接器只會選擇該金鑰可使用、且位於該金鑰可用連線上的重新路由及描述模型。之後的描述呼叫一律透過 OmniRoute 自迴圈進行，並附帶
+`x-omniroute-self-loop-key-id` 標頭，使接收端聊天請求再次強制執行該金鑰的連線與模型政策。`enforceApiKeyPolicy()`
+只有在該標頭與自迴圈 bearer 同時存在時才會接受它，因此它只能縮限存取權限，而無法解析的 id 會遭到拒絕。
 
-`visionBridgeHelpers.ts` 中的自迴圈 OpenAI 相容請求 (`callVisionModelSingle()`) 總是請求 `image_url.detail: "high"` — 無條件地，對於每個呼叫者/提供者，不受任何客戶端訊號的限制。低細節取樣會降低 OCR 準確性，而這正是此提示所要求的文字轉錄任務，因此描述呼叫本身總是要求高細節，無論原始入站請求使用了什麼細節級別。這只影響內部的描述請求主體；它不會改變 OmniRoute 如何在主要請求上轉發呼叫者自己的 `image_url.detail` — 該預設值是單獨應用的，並且僅適用於 `defaultImageDetail()` (`open-sse/handlers/chatCore/upstreamBody.ts`) 中檢測到的 OpenCode 客戶端。描述自迴圈的 Anthropic 線路格式分支沒有 `detail` 欄位，不受任何預設值的影響。
+若該金鑰不允許使用任何視覺模型，描述路徑會退出處理，請求則不經修改直接通過，其失敗開放行為與停用的防護機制相同（中繼資料為 `{ skipped: true, reason: "no_permitted_vision_model" }`）。
+沒有金鑰的請求，以及沒有這些限制的金鑰，其行為會與先前完全相同。
 
-#### 描述輸出上限 (`modalityBridgeVisionMaxChars`)
+#### 可感知任務的描述提示詞（`modalityBridgeVisionTaskAware`）
+
+預設為 **true**。`composeVisionPrompt()`（`visionBridgeHelpers.ts`）會將**最後一則使用者訊息**的文字（截斷至 500 個字元）附加至基礎描述提示詞，引導描述聚焦於使用者實際詢問的內容（codex-vision-proxy 模式），並要求視覺模型轉錄可見文字。關閉此旗標或沒有使用者文字時，會原封不動地使用基礎提示詞。
+
+描述自迴圈本身的 OpenAI 相容請求（`visionBridgeHelpers.ts` 中的 `callVisionModelSingle()`）一律要求 `image_url.detail: "high"`——無條件適用於每個呼叫端／提供者，不受任何用戶端訊號控制。對於此提示詞所要求的文字轉錄任務，低細節取樣會降低 OCR 準確度，因此無論原始傳入請求使用何種細節層級，描述呼叫本身一律要求高細節。這只會影響內部描述請求主體；不會改變 OmniRoute 在主要請求中轉送呼叫端自有 `image_url.detail` 的方式——該預設值會另外套用，而且只會針對偵測到的 OpenCode 用戶端，在 `defaultImageDetail()`（`open-sse/handlers/chatCore/upstreamBody.ts`）中進行。描述自迴圈的 Anthropic 線路格式分支沒有 `detail` 欄位，因此不受任一預設值影響。
+
+#### 描述輸出上限（`modalityBridgeVisionMaxChars`）
 
 | 鍵                             | 預設值 | 範圍             |
 | ------------------------------ | ------ | ---------------- |
 | `modalityBridgeVisionMaxChars` | `0`    | `0` 或 100–50000 |
 
-`0` (預設值) 表示**無上限** — `callVisionModel()` 返回的描述會未經修改地傳遞，保留現有行為。100–50000 範圍內的任何值都會在描述被拼接回 `[Image N]: <description>` (`src/lib/guardrails/visionBridge.ts` 中的 `VisionBridgeGuardrail.preCall()`) 之前，以 `…` 後綴截斷。對於下游模型需要完整轉錄的細節繁重 OCR 任務，請提高此值；對於冗長的視覺模型，請降低此值以限制 token 使用。儀表板欄位位於「視覺」選項卡的「進階」面板 (`ModalityBridgeVisionTab.tsx` 中的 `modality-bridge-max-chars`)，並將 1 到 99 之間的值限制為 100 的下限，同時保留明確的 `0` 不變 — `0` 本身就是一個有效的 Zod 值 (`z.union([z.literal(0), z.number().int().min(100).max(50000)])`)，而不僅僅是「未設定」的預設值。
+`0`（預設值）表示**沒有上限**——`callVisionModel()` 傳回的描述會原樣傳遞，以保留既有行為。任何介於 100–50000 的值都會截斷描述並加上 `…` 後綴，之後才將其插回為 `[Image N]: <description>`（`src/lib/guardrails/visionBridge.ts` 中的 `VisionBridgeGuardrail.preCall()`）。對於細節密集、下游模型需要完整轉錄內容的 OCR 任務，請提高此值；若要限制話多的視覺模型所使用的權杖量，則降低此值。儀表板欄位位於 Vision 分頁的 Advanced 面板中（`ModalityBridgeVisionTab.tsx` 中的 `modality-bridge-max-chars`），會將介於 1 到 99 的任何值向上限制至最低值 100，同時保留明確指定的 `0` 不變——`0` 本身就是有效的 Zod 值（`z.union([z.literal(0), z.number().int().min(100).max(50000)])`），而不只是「未設定」的預設值。
 
-#### 描述快取 (`modalityBridge/bridgeCache.ts`)
+#### 描述快取（`modalityBridge/bridgeCache.ts`）
 
-用於描述輸出的記憶體內 LRU + TTL 快取，在整個程序中共享。
-鍵 = `sha256(imageRef + composedPrompt + configuredBridgeModel)`，帶有長度前綴框架（無欄位邊界衝突）。模型組件是**已配置的**橋接模型，而不是實際回答的模型 — `callVisionModel` 可能會在內部回退，而按每次嘗試進行鍵控會使快取碎片化。失敗的描述永遠不會被快取。設定：
+供描述輸出使用的記憶體內 LRU + TTL 快取，由整個程序共用。  
+鍵 = `sha256(imageRef + composedPrompt + configuredBridgeModel)`，並使用長度前綴框架（不會發生欄位邊界碰撞）。模型部分使用的是**已設定的**橋接模型，而不是實際作答的模型——`callVisionModel` 可能會在內部進行後援切換，若依每次嘗試建立鍵，會使快取碎片化。失敗的描述絕不會被快取。設定如下：
 
 | 鍵                              | 預設值 | 範圍    |
 | ------------------------------- | ------ | ------- |
@@ -78,97 +101,108 @@
 | `modalityBridgeCacheTtlMinutes` | `60`   | 1–1440  |
 | `modalityBridgeCacheMaxEntries` | `200`  | 10–5000 |
 
-#### 遠端影像正規化 (自迴圈描述/base64 擷取)
+#### 遠端影像正規化（自迴圈描述／base64 擷取）
 
-當橋接器本身擷取**遠端**影像時 — Anthropic 描述自呼叫和 claude 線路格式 base64 轉換 (`ensureBase64ImagesForClaudeWire`)，兩者都透過 `visionBridgeHelpers.ts` 中的 `fetchRemoteImageAsDataUri()` 進行 — 產生的資料 URI 在嵌入視覺模型請求之前會透過 `normalizeDataUri()` (`open-sse/utils/imageNormalize.ts`) 傳遞。過大的影像會縮小到 **2048px 長邊**（與 OpenAI/Anthropic 已經在伺服器端應用的調整上限相符），這減少了上傳位元組/延遲，而不會改變視覺模型所看到的內容。調整大小使用 `sharp`，透過動態導入載入：在其原生二進位檔無法載入的平台上，`normalizeDataUri()` **從不拋出錯誤** — 它會回退到原始位元組的直通，因此描述/base64 轉換路徑始終保持工作。非影像位元組（未返回可解碼影像的擷取）也會未經觸碰地傳遞。此正規化僅限於橋接器為其自身呼叫擷取的影像 — 它從未應用於呼叫者的原始直通負載，這與僅選擇加入的變異原則（硬性規則 #20）一致。
+當橋接器自行擷取**遠端**影像時——包括 Anthropic 描述自我呼叫，以及 claude-wire-format 的 base64 轉換（`ensureBase64ImagesForClaudeWire`），兩者都透過 `visionBridgeHelpers.ts` 中的 `fetchRemoteImageAsDataUri()`——產生的資料 URI 會先傳入 `normalizeDataUri()`（`open-sse/utils/imageNormalize.ts`）處理，再嵌入視覺模型請求。過大的影像會縮小至**長邊 2048px**（與 OpenAI／Anthropic 已在伺服器端套用的縮放上限一致），因此可減少上傳位元組數／延遲，而不會改變視覺模型所看到的內容。縮放使用透過動態匯入載入的 `sharp`：在原生二進位檔無法載入的平台上，`normalizeDataUri()` **絕不會擲回例外**——它會退回直接傳遞原始位元組，因此描述／base64 轉換路徑始終能繼續運作。非影像位元組（擷取結果並非可解碼影像）也會原封不動地傳遞。此正規化僅限橋接器為自身自我呼叫所擷取的影像——絕不會套用至呼叫端未經處理的透傳承載內容，符合僅限明確啟用才可修改的原則（硬性規則 #20）。
 
-#### 設定架構 + 遷移
+#### 設定結構描述 + 遷移
 
-新的 `modalityBridge*` 鍵在 `updateSettingsSchema` (`src/shared/validation/settingsSchemas.ts`) 中進行 Zod 驗證：`modalityBridgeVisionEnabled`、`modalityBridgeVisionMode`、`modalityBridgeVisionModel`、`modalityBridgeVisionTaskAware`、`modalityBridgeVisionPrompt`、`modalityBridgeVisionTimeout`、`modalityBridgeVisionMaxImages`、`modalityBridgeVisionMaxChars`、`modalityBridgeCache*` 三人組，以及音訊橋接器使用的 `modalityBridgeAudio*` 群組。遷移 `141_modality_bridge_settings.sql` 將現有的舊版 `visionBridge*` 值複製到匹配的新鍵（冪等，從不覆寫操作員設定的 `modalityBridge*` 值）；舊版鍵在一個發布週期內仍被接受作為讀取回退。
+新的 `modalityBridge*` 鍵會在 `updateSettingsSchema`（`src/shared/validation/settingsSchemas.ts`）中經過 Zod 驗證：`modalityBridgeVisionEnabled`、`modalityBridgeVisionMode`、`modalityBridgeVisionModel`、`modalityBridgeVisionTaskAware`、`modalityBridgeVisionPrompt`、`modalityBridgeVisionTimeout`、`modalityBridgeVisionMaxImages`、`modalityBridgeVisionMaxChars`、`modalityBridgeCache*` 三個鍵，以及 Audio Bridge 使用的 `modalityBridgeAudio*` 群組。遷移 `141_modality_bridge_settings.sql` 會將既有的舊版 `visionBridge*` 值複製到對應的新鍵（可重複執行，且絕不會覆寫營運者已設定的 `modalityBridge*` 值）；舊版鍵仍會在一個版本週期內作為讀取後援而被接受。
 
-#### 透明度標頭 + 統計
+#### 透明度標頭 + 統計資料
 
-描述轉換後的回應帶有 `x-omniroute-modality-bridge: image->text;model=<visionModel>;parts=<n>`（由 `modalityBridge/bridgeStats.ts` 中的 `buildModalityBridgeHeader()` 構建，由 `src/sse/handlers/chatHelpers.ts` 中的 `withModalityBridgeHeader()` 標記）。重新路由的請求**沒有**標頭 — 負載未經觸碰，模型交換已在回應主體的 `model` 欄位中可見。
+經描述轉換的回應會帶有  
+`x-omniroute-modality-bridge: image->text;model=<visionModel>;parts=<n>`  
+（由 `modalityBridge/bridgeStats.ts` 中的 `buildModalityBridgeHeader()` 建立，並由 `src/sse/handlers/chatHelpers.ts` 中的 `withModalityBridgeHeader()` 加入）。重新路由的請求**不會**取得此標頭——承載內容未經修改，而且模型切換已可從回應主體的 `model` 欄位看出。
 
-`GET /api/modality-bridge/stats`（管理員驗證，與 `GET /api/settings` 相同層級）返回記憶體中每個模態的計數器 `{ attempts, successes, bridged, cacheHits, failures, totalLatencyMs, latencySamples, averageLatencyMs, lastUsedAt }`，適用於 `vision`、`audio` 和 `video`。`averageLatencyMs` 使用 `latencySamples` 作為其分母，而不是所有嘗試；沒有計時的操作不會產生零毫秒的樣本。`bridged` 仍然是成功轉換的向後相容別名；失敗的嘗試不會增加它。計數器在程序重新啟動時重置是設計使然（遙測，而非會計）。
+`GET /api/modality-bridge/stats`（管理驗證，層級與
+`GET /api/settings` 相同）會傳回記憶體中各模態的計數器
+`{ attempts, successes, bridged, cacheHits, failures, totalLatencyMs,
+latencySamples, averageLatencyMs, lastUsedAt }`，涵蓋 `vision`、`audio` 與
+`video`。`averageLatencyMs` 使用 `latencySamples` 作為分母，而非所有嘗試次數；
+沒有計時資料的操作不會虛構一筆零毫秒的樣本。`bridged` 仍是成功轉換的
+向後相容別名；失敗的嘗試不會增加其數值。
+依設計，計數器會在程序重新啟動時重設
+（用於遙測，而非計費）。
 
-#### 儀表板配置
+#### 儀表板設定
 
-專用的儀表板頁面是
+專用的儀表板頁面位於
 `/dashboard/settings/modality-bridge`。其可透過 URL 定址的 `Vision`、`Audio`
-和 `Video` 標籤在切換 `tab` 值時保留查詢參數。
-Vision 標籤公開了啟用、模式、模型選擇（包括自動預設）、任務感知提示、進階逾時/影像/描述長度/快取
-限制、執行時間
-計數器，以及受保護的範例請求。Audio 標籤也已上線：它公開了
-啟用、僅 STT 模型選擇器（含自動）、逾時/最大剪輯限制、音訊
-計數器，以及 `input_audio` 範例測試。Video 標籤功能正常：它報告
-FFmpeg/ffprobe 執行時間狀態 — 四種明確的 UI 狀態之一（探測進行中或無法完成時為 `unknown`，
-在非迴路儀表板主機上跳過用戶端探測時為 `restricted`，
-探測後確認遺失時為 `unavailable`，或顯示 FFmpeg/ffprobe 版本時為 `available`）— 持續
-啟用/模型/影格/視訊/逾時限制，將模型選擇器篩選為支援視覺的模型，
-並公開視訊計數器。
+與 `Video` 分頁會在切換 `tab` 值時保留查詢參數。
+Vision 分頁提供啟用設定、模式、模型選擇（包括自動預設值）、
+任務感知提示、進階逾時／影像／描述長度／快取限制、執行階段
+計數器，以及受防護的範例請求。Audio 分頁也已可實際使用：它提供
+啟用設定、含 Auto 的僅限 STT 模型選擇器、逾時／最大剪輯數限制、音訊
+計數器，以及 `input_audio` 範例測試。Video 分頁具備完整功能：它會回報
+FFmpeg/ffprobe 的執行階段狀態——四種明確 UI 狀態之一（探查正在進行或
+無法完成時為 `unknown`；儀表板主機並非 loopback，因而在用戶端略過探查時為
+`restricted`；完成探查並確認缺少時為 `unavailable`；或在可用時顯示
+FFmpeg/ffprobe 版本並標示為 `available`）——會保存啟用／模型／影格／影片／
+逾時限制、將模型選擇器篩選為支援視覺功能的模型，並提供影片計數器。
 
-AI 設定下的舊 Vision Bridge 卡片是新頁面的相容性連結；它不再擁有表單的第二份副本。媒體提供者也
-將影像轉文字和語音轉文字工作流程連結到對應的 Modality
-Bridge 標籤，而無需移除現有的語音轉文字遊樂場。
+AI 設定下原有的 Vision Bridge 卡片現在是指向新頁面的相容性連結；
+它不再持有表單的第二份副本。Media Providers 也會將 Image-to-Text 與
+Speech-to-Text 工作流程連結至對應的 Modality Bridge 分頁，同時保留現有的
+Speech-to-Text 測試介面。
 
-**自迴路准入繞過：** 當描述呼叫透過 OmniRoute 自己的
-`/v1` 自迴路（非標準提供者模型）路由時，子請求會傳送
-`x-omniroute-admission-bypass: internal` 並使用解析的
-自迴路憑證進行驗證 — 在本機模式下為本機 `sk_omniroute` 哨兵，或
-操作員配置的 `OMNIROUTE_API_KEY` / `ROUTER_API_KEY` 環境變數鍵 (#1350)，因此
-`REQUIRE_API_KEY=true` 部署仍可執行描述呼叫。繞過僅對這些確切的憑證有效，
-因此外部客戶端無法使用標頭跳過准入。
+**自我迴圈准入繞過：** 當描述呼叫透過 OmniRoute 自身的 `/v1` 自我迴圈
+（非標準提供者模型）路由時，子請求會傳送
+`x-omniroute-admission-bypass: internal`，並使用解析後的自我迴圈憑證進行驗證——
+本機模式下使用本機 `sk_omniroute` 哨兵值，否則使用由操作人員設定的
+`OMNIROUTE_API_KEY` / `ROUTER_API_KEY` 環境變數金鑰 (#1350)，如此一來，
+`REQUIRE_API_KEY=true` 的部署仍可執行描述呼叫。只有使用這些完全相符的
+憑證時，才會接受此繞過機制，因此外部用戶端無法利用該標頭略過准入檢查。
 
-舊版預設值位於 `src/shared/constants/visionBridgeDefaults.ts` 中；
-新的模式/任務感知/快取預設值和設定解析器位於
-`src/shared/constants/modalityBridgeDefaults.ts` 中。防護欄公開了
-`deps` 建構函式選項，以便測試可以注入假的 `getSettings` 和
+舊版預設值位於 `src/shared/constants/visionBridgeDefaults.ts`；
+新的模式／任務感知／快取預設值與設定解析器位於
+`src/shared/constants/modalityBridgeDefaults.ts`。防護機制提供
+`deps` 建構函式選項，讓測試可注入假的 `getSettings` 與
 `callVisionModel` 實作。
 
-### 音訊橋接器 (`audioBridge.ts`) — 模態橋接器 PR-3
+### Audio Bridge (`audioBridge.ts`) — Modality Bridge PR-3
 
-在音訊聊天請求到達不接受音訊輸入的目標之前攔截它們。
-它從不重新路由聊天請求：音訊部分透過現有的 OpenAI 相容多部分端點進行轉錄，
-並且所選的聊天模型繼續使用文字轉錄。
+在包含音訊的聊天請求送達尚未確認可接受音訊輸入的目標之前攔截它。
+它絕不會重新路由聊天請求：音訊部分會透過現有的 OpenAI 相容 multipart
+端點進行轉錄，而所選的聊天模型則繼續使用文字轉錄稿。
 
 流程：
 
 1. 透過 `getResolvedModelCapabilities()` 解析 `supportsAudio`。明確的
-   提供者註冊表元資料優先，然後是靜態模型元資料，然後是同步的
-   `modalities_input`。未包含 `audio` 的宣告輸入清單為 `false`；沒有
-   能力證據則為 `null`。`false` 和 `null` 都會啟用保守的橋接器，
-   而 `true` 則會繞過它。
+   provider-registry 中繼資料優先，其次是靜態模型中繼資料，最後是同步的
+   `modalities_input`。已宣告但不含 `audio` 的輸入清單會解析為 `false`；
+   若完全沒有能力證據，則維持為 `null`。`false` 與 `null` 都會啟用
+   保守橋接，而 `true` 則會略過。
 2. 解析 `modalityBridgeAudio*` 設定，並透過共用的 `detectMediaParts()`
-   偵測器從每條訊息中提取可拼接的頂層音訊部分。支援的線路形狀是 OpenAI `input_audio`、`audio_url` 和
-   `source.media_type: "audio/*"`。巢狀音訊會被偵測用於路由，但不會
-   被拼接路徑移除。工作受 `modalityBridgeAudioMaxClips` 限制；
-   後續部分保持不變。
-3. 遵守配置的 `provider/model`，或讓 `selectAudioBridgeModel()` 按照
-   穩定目錄順序遍歷 `AUDIO_TRANSCRIPTION_PROVIDERS`，並選擇第一個
-   具有可用活動提供者憑證的模型。
-4. `callAudioTranscription()` 將 base64/資料 URI 音訊轉換為多部分
-   `file`，或透過僅限公開的出站防護（帶有 DNS 固定和 25 MB 限制）下載遠端 `audio_url`。
-   然後它將檔案和選定的模型 POST 到本機 `/v1/audio/transcriptions` 自迴路，
-   並使用 `resolveSelfLoopBearer()` 進行驗證。現有的轉錄路由執行正常的
-   憑證查找、冷卻/速率限制處理和提供者分派。
-5. 成功的呼叫將其部分替換為 `[Audio N]: <transcript>`。呼叫
-   以 `Promise.allSettled` 執行：個別失敗會保留該原始
-   音訊部分（#4012 合約）。如果所有呼叫都失敗且目標被證明
-   `supportsAudio === false`，則部分變為
-   `[Audio N]: (unavailable — no STT provider connected)`（#8430 合約）。對於
-   未知目標 (`null`)，所有失敗結果保持不變。已證實的
-   僅文字目標且沒有可用的 STT 憑證會收到相同的明確
-   存根，而無需發出網路呼叫。
+   偵測器，從每則訊息中擷取可拼接的頂層音訊部分。支援的線上格式包括
+   OpenAI `input_audio`、`audio_url` 與 `source.media_type: "audio/*"`。
+   巢狀音訊會被偵測以供路由使用，但不會由拼接路徑移除。工作量以
+   `modalityBridgeAudioMaxClips` 為上限；後續部分保持不變。
+3. 採用已設定的 `provider/model`，或讓 `selectAudioBridgeModel()` 依穩定的
+   目錄順序走訪 `AUDIO_TRANSCRIPTION_PROVIDERS`，並選取第一個具有可用且
+   已啟用之提供者憑證的模型。
+4. `callAudioTranscription()` 會將 base64/data-URI 音訊轉換為 multipart
+   `file`，或透過僅允許公開位置的輸出防護機制下載遠端 `audio_url`，
+   同時採用 DNS 固定並限制為 25 MB。接著，它會將檔案與所選模型 POST 至
+   本機 `/v1/audio/transcriptions` 自我迴圈，並使用
+   `resolveSelfLoopBearer()` 進行驗證。現有的轉錄路由會執行一般的
+   憑證查找、冷卻期／速率限制處理，以及提供者分派。
+5. 成功的呼叫會將其部分替換為 `[Audio N]: <transcript>`。呼叫使用
+   `Promise.allSettled` 執行：個別失敗會保留原始音訊部分（#4012 合約）。
+   如果所有呼叫都失敗，且目標已證實 `supportsAudio === false`，這些部分
+   會變成 `[Audio N]: (unavailable — no STT provider connected)`
+   （#8430 合約）。對於未知目標（`null`），全部失敗時會維持原樣。已證實
+   僅支援文字、但沒有可用 STT 憑證的目標，會收到相同的明確替代文字，
+   而不會發出網路呼叫。
 
-成功的轉錄使用進程範圍的 Modality Bridge LRU/TTL 快取。鍵組合了音訊參考、
-穩定的 `audio-transcription` 操作標籤和選定的 STT 模型；失敗從不快取。
-音訊嘗試會更新共用的 `bridged`、`cacheHits`、`failures` 和 `lastUsedAt` 計數器。
-轉換後的回應攜帶
-`x-omniroute-modality-bridge: audio->text;model=<sttModel>;parts=<n>`；未觸及的
-請求不會收到音訊橋接器段。
+成功的轉錄稿會使用程序全域的 Modality Bridge LRU/TTL 快取。其鍵值結合
+音訊參照、穩定的 `audio-transcription` 操作標籤，以及所選的 STT 模型；
+失敗永遠不會被快取。音訊嘗試會更新共用的 `bridged`、`cacheHits`、
+`failures` 與 `lastUsedAt` 計數器。經轉換的回應會帶有
+`x-omniroute-modality-bridge: audio->text;model=<sttModel>;parts=<n>`；
+未變更的請求不會收到 Audio Bridge 區段。
 
-執行時間設定由資料庫支援並經過 Zod 驗證：
+執行階段設定由資料庫提供，並經過 Zod 驗證：
 
 | 鍵                            | 預設值  | 範圍          |
 | ----------------------------- | ------- | ------------- |
@@ -178,133 +212,214 @@ Bridge 標籤，而無需移除現有的語音轉文字遊樂場。
 | `modalityBridgeAudioMaxClips` | `3`     | 1–10          |
 
 共用快取仍由 `modalityBridgeCacheEnabled`、
-`modalityBridgeCacheTtlMinutes` 和 `modalityBridgeCacheMaxEntries` 控制。
+`modalityBridgeCacheTtlMinutes` 與 `modalityBridgeCacheMaxEntries` 控制。
 
-### 視訊橋接器 (`videoBridge.ts`, `videoBridgePipeline.ts`)
+### 視訊橋接器（`videoBridge.ts`、`videoBridgePipeline.ts`）
 
-攔截 Chat Completions `messages` 和 Responses API `input` 中的頂層影片部分，在呼叫沒有已知原生影片支援的目標之前。
-支援的形狀包括 `input_video`、`video_url`、`video_source`、HTTPS URL，以及 `data:video/*;base64,...` 資料 URI。文字中的純檔案名稱不被視為影片。
+在呼叫已知不具備原生視訊支援的目標之前，攔截 Chat Completions `messages`
+與 Responses API `input` 中的頂層視訊部分。支援的格式包括 `input_video`、
+`video_url`、`video_source`、HTTPS URL，以及 `data:video/*;base64,...`
+資料 URI。文字中的純檔案名稱不會被視為視訊。
 
-`VideoBridgeGuardrail.preCall` (`videoBridge.ts`) 負責請求遍歷、能力/策略檢查、每個請求的聚合以及回應酬載。每個影片的工作——獲取、整體結果快取、描述影格序列（它融合了任何呼叫者聲明的音訊轉錄），以及每次嘗試的指標/中止/清理——都隱藏在 `videoBridgePipeline.ts` 中的 `processVideoPart` 後面，在 `preCall` 的循環中為每個影片部分呼叫一次。該模組還定義了明確的埠邊界 `VideoMediaBrokerPort`（獲取位元組並提取採樣影格）、`VideoAudioTranscriptionPort`（將呼叫者聲明的音訊轉錄與採樣字幕融合），以及 `VideoDrilldownPort`（影格鑽取持久性邊界；尚未連接到 `processVideoPart` — 目前只有獨立的 `/api/modality-bridge/video/drilldown` 路由寫入鑽取條目）。
+`VideoBridgeGuardrail.preCall`（`videoBridge.ts`）負責請求遍歷、能力／原則檢查、
+單次請求彙總及回應承載資料。每個視訊的工作——取得內容、完整結果快取、
+描述影格序列（會融合呼叫端宣告的任何音訊轉錄文字），以及每次嘗試的
+指標／中止／清理——都隱藏在 `videoBridgePipeline.ts` 的
+`processVideoPart` 後方，並在 `preCall` 的迴圈內針對每個視訊部分呼叫一次。
+該模組也定義了明確的連接埠邊界 `VideoMediaBrokerPort`
+（取得位元組並擷取取樣影格）、`VideoAudioTranscriptionPort`
+（將呼叫端宣告的音訊轉錄文字與取樣字幕融合），以及
+`VideoDrilldownPort`（影格深入檢視的持久化邊界；尚未接入
+`processVideoPart`——目前只有獨立的 `/api/modality-bridge/video/drilldown`
+路由會寫入深入檢視項目）。
 
-公共 `/v1` 請求路徑從不導入或呼叫子進程。遠端影片下載限制為 50 MiB；內聯 base64 影片每個影片的解碼上限保守地設定為 36 MiB，以便模型/訊息/框架封裝可以保持在公共 JSON 請求准入限制 50 MiB 之內。在分配之前會檢查內聯長度和解碼大小估計。初始遠端 URL 和每次重定向都要求使用 HTTPS，並使用現有的僅限公共出站防護與 DNS 釘選。這些位元組隨後會跨越精確的內部 `POST /api/modality-bridge/video/extract` 代理邊界。該路由既是 `LOCAL_ONLY` 又是 `SPAWN_CAPABLE`，只接受每個進程經過身份驗證的、受信任的環回請求，並且從不接受 URL、檔案系統路徑、可執行檔或參數列表。API 主體大小管道和處理程序的增量主體讀取器獨立地強制執行 50 MiB 的代理輸入上限。其有界佇列一次運行一個提取，允許四個待處理作業，並將待處理輸入限制在 100 MiB。
+公開的 `/v1` 請求路徑絕不匯入或叫用子程序。遠端視訊的下載上限為 50 MiB；
+內嵌 base64 視訊設有較保守的每個視訊 36 MiB 解碼後上限，讓模型／訊息／
+框架封裝仍可維持在公開 JSON 請求 50 MiB 的准入限制內。系統會在配置記憶體
+之前檢查內嵌長度與解碼後大小的估算值。初始遠端 URL 及每次重新導向都必須
+使用 HTTPS，並採用現有僅允許公開位址、具 DNS 釘選功能的對外連線防護。
+接著，這些位元組會跨越確切的內部
+`POST /api/modality-bridge/video/extract` 代理邊界。該路由同時為
+`LOCAL_ONLY` 與 `SPAWN_CAPABLE`，僅接受經各程序驗證的受信任回送請求，
+且絕不接受 URL、檔案系統路徑、可執行檔或引數清單。API 內文大小處理管線
+與處理常式的增量式內文讀取器會各自獨立強制執行 50 MiB 的代理輸入上限。
+其有界佇列一次執行一項擷取工作，允許四項待處理工作，並將待處理輸入總量
+限制在 100 MiB。
 
-在代理內部，`ffprobe` 讀取私有本地檔案；固定的格式允許列表排除了播放列表和清單格式。對於允許的 MOV 系列容器，外部 MOV 資料引用預設保持禁用狀態，並且固定命令不選擇啟用它們。`ffprobe` 和 `ffmpeg` 都使用僅限 `file` 的協議白名單、單一執行緒、固定參數陣列、無 shell，以及從 `PATH` 解析的可執行檔。附加圖片封面串流不是可播放的候選對象。所有可播放的串流都必須滿足限制，並且在確定性的最低索引回退之前，會優先選擇明確的預設串流。影片限制為 600 秒、每個維度 8,192 像素，以及 33,554,432 原始像素。FFmpeg 採樣 1–16 個中點 JPEG 影格，將長邊縮小到最多 1,024 像素，而不放大較小的輸入，並且從不接收 URL。採樣預設為 `uniform`。可選的 `scene_aware` 和實驗性的 `segment_aware` 策略會對已驗證的本地串流執行一次額外的固定 FFmpeg 遍歷，選擇有界的 `showinfo` 場景時間戳，並在檢測器故障、超時、格式錯誤的輸出或空候選集時確定性地回退到相同的均勻中點。片段感知模式根據已驗證的場景間隔按比例分配中點樣本；片段感知證據和回退行為詳見下文。在每種策略中，選擇後都會應用嚴格的 16 影格上限。當場景感知請求只有一個影格預算時，它會使用活動的完整影片或焦點視窗的均勻中點，並報告 `policyEffective: uniform`：單個選定的場景影格無法同時保留時間兩端。呼叫者可以選擇提供一個有限的焦點視窗（`start`/`end` 秒）；邊界會被限制在媒體持續時間內，反向或非有限的視窗會被拒絕，並且所有採樣策略都只在正規化區間內執行。結果視窗會包含在採樣元資料和不受信任的描述前綴中，以便下游模型可以區分焦點摘錄和完整時間軸。
+在代理內，`ffprobe` 會讀取私有本機檔案；固定的格式允許清單會排除播放清單
+與資訊清單格式。對於允許的 MOV 系列容器，外部 MOV 資料參照預設仍為停用，
+且固定命令不會選擇啟用它們。`ffprobe` 與 `ffmpeg` 都使用僅允許 `file`
+的通訊協定白名單、單一執行緒、固定引數陣列、不使用 shell，且可執行檔從
+`PATH` 解析。附加圖片的封面串流不會被視為可播放候選項。所有可播放串流都
+必須符合限制，並會先選用明確的預設串流，再使用具確定性的最低索引後備方案。
+視訊限制為 600 秒、每個維度 8,192 像素，以及 33,554,432 個來源像素。
+FFmpeg 會取樣 1–16 個中點 JPEG 影格，將長邊縮小至最多 1,024 像素，
+不會放大小於此值的輸入，且絕不會接收 URL。取樣預設為 `uniform`。
+選用的 `scene_aware` 與實驗性 `segment_aware` 原則，會對已驗證的本機串流
+額外執行一次固定的 FFmpeg 處理流程、選取有界的 `showinfo` 場景時間戳記，
+並在偵測器失敗、逾時、輸出格式錯誤或候選集為空時，以具確定性的方式回退至
+相同的均勻中點。區段感知模式會依已驗證場景區間的比例分配中點樣本；
+區段感知的證據與後備行為詳述如下。在所有原則中，選取完成後都會套用
+16 個影格的硬性上限。當場景感知請求只有一個影格的額度時，會使用目前完整
+視訊或焦點視窗的均勻中點，並回報 `policyEffective: uniform`：單一選定的
+場景影格無法同時保留時間範圍的兩端。呼叫端可選擇提供有限的焦點視窗
+（`start`／`end` 秒）；邊界會被限制在媒體持續時間內，反向或非有限值的視窗
+會遭拒絕，而所有取樣原則都只會在正規化後的區間內執行。產生的視窗會包含在
+取樣中繼資料與不受信任的描述前綴中，讓下游模型能區分聚焦的節錄片段與完整
+時間軸。
 
-語義字幕焦點是一個獨立的、明確的設定。預設的 `full` 分析模式會保留現有的影格提示，並且從不將請求文字轉發給字幕模型。在 `focused` 模式下，橋接器只從相同的 Chat 或 Responses 容器中讀取最新的非空使用者撰寫的 `text`/`input_text`，將其正規化為 NFC，折疊控制字元和空白字元，並將其限制為 500 個 Unicode 碼點。空結果會回退到精確的 `full` 提示。可用的提示會以 JSON 格式序列化在專用的不受信任使用者上下文區塊中，並且只能優先處理可觀察到的細節；它不能覆蓋關於不遵循媒體中可見或可聽指令的單獨警告。文字焦點從不推斷 `start`/`end` 或改變時間採樣器。
+語意字幕焦點是另一項明確的設定。預設的 `full` 分析模式會保留現有的影格
+提示，且絕不會將請求文字轉送至字幕模型。在 `focused` 模式中，橋接器只會
+從相同的 Chat 或 Responses 容器讀取最新且非空白、由使用者撰寫的
+`text`／`input_text`，將其正規化為 NFC、摺疊控制字元與空白字元，並限制為
+500 個 Unicode 碼位。空白結果會回退至完全相同的 `full` 提示。可用的提示
+會在專用的不受信任使用者情境區塊中序列化為 JSON，且只能用於優先處理可觀察
+到的細節；它無法覆寫另一項警告，即不得遵循媒體中看得見或聽得到的指示。
+文字焦點絕不會推斷 `start`／`end`，也不會變更時間取樣器。
 
-#### FU-07 結構片段證據
+#### FU-07 結構化區段證據
 
-`segment_aware` 會對已驗證的本地影片串流執行一次有界的預分析遍歷。固定的濾波器鏈首先將寬度縮放到最多 320 像素，檢測場景變化和凍結間隔，然後以每秒 1 影格的速度採樣模糊、平均亮度以及空間/時間資訊。該遍歷限制為 600 個結構樣本、一個 FFmpeg/濾波器執行緒、相同的僅限 `file` 的協議和容器允許列表、1 MiB 的進程輸出限制，以及在代理的共享中止/截止時間內最多 30 秒。它從不接受來自請求的命令、濾波器、路徑或 URL。
+`segment_aware` 會對已驗證的本機視訊串流執行一次有界限的預分析。固定的篩選器鏈會先將寬度縮放至最多 320 像素、偵測場景變更與凍結區間，然後以每秒 1 個影格的頻率取樣，以分析模糊程度、平均亮度，以及空間／時間資訊。此處理程序限制為 600 個結構取樣、一個 FFmpeg／篩選器執行緒、相同的僅限 `file` 通訊協定與容器允許清單、1 MiB 的程序輸出上限，以及代理程式共用中止／截止期限內最多 30 秒。它絕不接受來自請求的命令、篩選器、路徑或 URL。
 
-結構值是確定性採樣證據，而非語義影片理解。它們不推斷主題、動作、字幕、語音或使用者意圖。場景和凍結邊界形成片段；凍結覆蓋範圍、模糊、曝光、空間細節和時間變化僅影響現有 1–16 幀預算的分配方式。完全凍結的片段上限為一幀，而非凍結片段則競爭剩餘預算。當邊界數量超過幀數時，會保留統一的時間軸覆蓋範圍，這樣快速的早期剪輯就無法隱藏長尾片段。凍結邊界 1 秒分析解析度內的場景邊界會被合併。
+這些結構值是具決定性的取樣證據，而不是對視訊語意的理解。它們不會推斷主體、動作、字幕、語音或使用者意圖。場景與凍結邊界會形成片段；凍結涵蓋率、模糊程度、曝光、空間細節及時間變化，只會影響現有 1–16 個影格預算的配置方式。完全凍結的片段最多配置一個影格，而非凍結片段則競爭剩餘的預算。當邊界數量多於影格數量時，仍會保留時間軸上的均勻涵蓋，避免前段快速切換遮蔽後方較長的片段。若場景邊界位於凍結邊界的 1 秒分析解析度範圍內，兩者會合併。
 
-缺少篩選器、格式錯誤/空證據、偵測器錯誤或有界預分析逾時，都會開放至精確的統一中點策略。呼叫者中止或代理逾期不會開放：它會終止進行中的子程序，阻止後續的幀提取，並且私有臨時樹會在 `finally` 中移除。
+若缺少篩選器、證據格式錯誤／為空、偵測器發生錯誤，或有界限的預分析逾時，系統會採取開放式失敗處理，完全回復為均勻中點原則。呼叫端中止或代理程式截止期限不會採取開放式失敗處理：它會終止執行中的子程序、阻止後續影格擷取，並在 `finally` 中移除私有暫存目錄樹。
 
-`scripts/perf/video-bridge-fu07-eval.ts` 生成確定性的真實 FFmpeg 夾具，用於去重後字幕呼叫節省、密集運動預算分配、模糊/曝光/SI-TI 證據、帶長尾的快速剪輯以及漸變淡出誤報。它記錄預分析的實際運行時間，並且在 `/usr/bin/time` 可用時，記錄子程序 CPU 和峰值 RSS。它的品質檢查僅是結構性的預言機。真實字幕模型品質仍為 `HOLD`，因為此測試工具沒有授權端點或凍結的判斷標準。除非 `--caption-cost-per-call-usd` 提供明確的正向每次呼叫估計值，否則金錢節省也仍為 `HOLD`；該腳本從不捏造任何結果。
+`scripts/perf/video-bridge-fu07-eval.ts` 會產生具決定性的真實 FFmpeg 測試素材，用於評估去重後的字幕呼叫節省量、密集動態預算配置、模糊／曝光／SI-TI 證據、帶有長尾的快速切換，以及漸進淡出造成的誤判。它會記錄預分析的實際經過時間，且在 `/usr/bin/time` 可用時記錄子程序 CPU 使用量與 RSS 峰值。其品質檢查僅使用結構性預期結果。真實字幕模型的品質仍為 `HOLD`，因為此測試工具沒有已授權的端點或已凍結的評審器。除非 `--caption-cost-per-call-usd` 提供明確的正數單次呼叫成本估算，否則金額節省結果也仍為 `HOLD`；此指令碼絕不捏造任一結果。
 
-每幀限制為 4 MiB，所有原始幀總計限制為 23 MiB，序列化的代理回應限制為 32 MiB。私有臨時目錄會在 `finally` 中移除。OmniRoute 不捆綁 FFmpeg，也不接受自訂可執行檔路徑。在生成字幕之前，橋接器會應用保守的視覺去重處理：每個 JPEG 都會縮減為 16×16 灰度緩衝區，並且僅與保留的最後一幀進行比較。對於請求的字幕預算超過一幀的情況，提取會提供一個有界限的候選池，最多是該預算的兩倍，且永不超過 16 幀。請求的上限僅在去重後應用，當預算至少為兩幀時，在最終精簡過程中會保留第一個和最後一個選定的候選幀。版本化的 `grayscale-16x16-mean-cells-v2` 策略使用平均亮度差和正規化差值至少為 0.05 的縮圖單元格比例中的較大值。重複閾值是常數 0.04，選擇它是為了可預測性，而不是作為運行時設定公開。這種次要的高對比度訊號保留了僅平均值比較可能隱藏的小動作和可見文字變化。比較器或解碼器錯誤會開放並保持覆蓋範圍。輸出元數據會區分提取的候選幀、成功使用的幀和被丟棄的視覺重複幀。
+每個影格的大小上限為 4 MiB，所有原始影格合計上限為 23 MiB，序列化代理程式回應的上限則為 32 MiB。私有暫存目錄會在 `finally` 中移除。OmniRoute 不隨附 FFmpeg，也不接受自訂的可執行檔路徑。在產生字幕之前，此橋接器會套用保守的視覺去重處理：每個 JPEG 都會縮減為 16×16 灰階緩衝區，且只與最後一個保留的影格比較。當要求的字幕預算超過一個影格時，擷取作業會提供一個有界限的候選集區，其大小最多為該預算的兩倍，且絕不超過 16 個影格。要求的上限只會在去重後套用；當預算至少為兩個影格時，最終精簡期間會保留第一個與最後一個選定候選項目。具版本的
+`grayscale-16x16-mean-cells-v2` 原則會取平均亮度差值與縮圖儲存格比例兩者中的較大值；後者指正規化差值至少為 0.05 的縮圖儲存格比例。重複項目閾值為常數 0.04；選擇常數是為了可預測性，而不是將其公開為執行階段設定。這項次要的高對比訊號可保留僅使用平均值比較時可能被隱藏的細微動態與可見文字變更。比較器或解碼器錯誤會採取開放式失敗處理並保留涵蓋範圍。輸出中繼資料會分別列出已擷取的候選影格、成功使用的影格，以及已捨棄的視覺重複項目。
 
-明確標記的影片部分可能會請求帶時間戳的聯絡表。橋接器最多建立一個 4 欄、16 幀的 JPEG 網格。每個 512 像素的單元格都會將其來源時間戳燒錄到高對比度的底部條帶中，而相同的時間戳則保留在文字元數據中，以供下游關聯和審計。完整的 JPEG 仍限制在 32 MiB。如果 `sharp` 無法解碼或合成網格，橋接器會退回到單獨的 JPEG 幀；客戶端中止仍會透過工作表操作傳播。
+明確標記的視訊部分可以要求附有時間戳記的接觸表。此橋接器最多會建立一個 4 欄、16 影格的 JPEG 網格。每個 512 像素的儲存格都會將來源時間戳記燒錄至高對比的底部區帶中，而相同的時間戳記也會保留在文字中繼資料內，以供下游建立關聯及稽核。完整 JPEG 的大小上限仍為 32 MiB。如果 `sharp` 無法解碼或合成網格，此橋接器會回復為個別 JPEG 影格；用戶端中止仍會傳遞至接觸表作業。
 
-晉升證據與合成組合微基準測試是刻意分開的。`scripts/perf/video-bridge-contact-sheet-eval.ts` 為真實的 OpenAI 相容視覺模型定義了一個帶有 schema 版本的 A/B 測試工具。它測量提供者報告的 token、端到端實際延遲（包括工作表組合）、模型呼叫次數以及清單定義的事實保留。原始模型回應不會寫入報告；僅保留 SHA-256 摘要和匹配的事實 ID。除非傳遞 `--execute-real` 且配置了 `--model`、`OMNIROUTE_BASE_URL` 和 `OMNIROUTE_API_KEY`，否則該測試工具不會進行網路或付費模型呼叫。如果沒有明確的實際運行，其機器可讀的判斷結果仍為 `HOLD`；單獨的合成負載/呼叫次數測量並非晉升證據。
+晉升證據會刻意與合成組合微基準測試分開。`scripts/perf/video-bridge-contact-sheet-eval.ts` 定義了一個採用結構描述版本控制的 A/B 測試工具，用於真實的 OpenAI 相容視覺模型。它會測量提供者回報的權杖數、端對端實際延遲（包括接觸表合成）、模型呼叫次數，以及資訊清單所定義的事實保留率。原始模型回應不會寫入報告；只會保留 SHA-256 摘要與相符的事實 ID。除非傳入 `--execute-real`，並已設定 `--model`、`OMNIROUTE_BASE_URL` 和 `OMNIROUTE_API_KEY`，否則此測試工具不會發出任何網路或付費模型呼叫。若未進行這項明確的真實執行，其機器可讀取的裁定仍為 `HOLD`；僅有合成承載資料／呼叫次數測量並不構成晉升證據。
 
-呼叫者可以在已擁有對齊文本時，將可選的 `transcript.cues` 陣列附加到受支援的影片部分。每個提示必須包含 `text`、探測持續時間內的有限 `start`/`end` 間隔，以及白名單中的 `source` (`client`、`embedded` 或 `audio-bridge`)；`confidence` 預設為 `1`，且必須介於 `0` 和 `1` 之間。完全重複的提示會被合併。OmniRoute 從不從此元數據開始轉錄：經過驗證的提示會連同來源、置信度和間隔一起複製到描述的結果中，並作為不可信的觀察結果與幀字幕一起呈現。無效、超出範圍或無來源的文本會被拒絕，而不是混入字幕流中。`source` 欄位目前由呼叫者聲明，而非伺服器驗證：OmniRoute 強制該值為三個允許字串之一，但尚未以加密方式確認 `embedded` 或 `audio-bridge` 標籤確實來自伺服器擁有的提取。在該驗證實施之前，請將 `source` 視為不可信的提示；不要以此建立授權決策。
+當呼叫端已擁有對齊的文字時，可以將選用的 `transcript.cues` 陣列附加至支援的視訊部分。每個提示都必須包含 `text`、位於探測所得持續時間內的有限 `start`／`end` 區間，以及允許清單中的 `source`（`client`、`embedded` 或 `audio-bridge`）；`confidence` 預設為 `1`，且必須維持在 `0` 到 `1` 之間。完全相同的重複提示會合併。OmniRoute 絕不會根據此中繼資料啟動轉錄：已驗證的提示會連同來源、信賴度及區間複製到所描述的結果中，並與影格字幕一起呈現為不受信任的觀察結果。無效、超出範圍或沒有來源依據的文字會遭到拒絕，而不會混入字幕串流。目前 `source` 欄位由呼叫端宣告，未經伺服器驗證：OmniRoute 會強制要求該值必須是三個允許字串之一，但目前尚未以密碼學方式確認 `embedded` 或 `audio-bridge` 標籤是否確實來自伺服器所擁有的擷取作業。在該驗證功能實作之前，請將 `source` 視為不受信任的提示；請勿依據它做出授權決策。
 
-高級呼叫者可以為同一影片提供一個已授權的 `audioTranscript` 軌道。融合接縫在一個截止日期和中止訊號下運行視覺和音訊觀察，將它們按共同時間軸排序，合併完全重複的項目，並在只有一方成功時報告部分結果。無效的 `audioTranscript` 會降級為該部分結果 — 視覺描述會被保留，音訊分支會記錄一個已淨化的失敗代碼 — 而不是使整個影片失敗。每個分支的可用性、部分標誌和已淨化的失敗代碼都保留在描述的結果中、防護欄元數據（`audioFusionRuns`/`audioFusionPartials`/`audioFusionFailureCodes`）中、結果快取元數據中，以及橋接融合計數器中。預設的視訊橋接路徑不會呼叫語音轉文字或下載第二份媒體副本；如果沒有該明確軌道，它將保持僅限視訊。
+進階呼叫端可為同一部影片提供已獲授權的 `audioTranscript` 軌道。融合接合點會在同一個截止時間與中止訊號下執行視覺和音訊觀察、依共同時間軸排序、合併完全相同的重複項目，並在僅有一側成功時回報部分結果。無效的 `audioTranscript` 會降級為該部分結果，而不是導致整部影片處理失敗——視覺描述會予以保留，而音訊分支會記錄經過清理的失敗代碼。各分支的可用性、部分結果旗標，以及經過清理的失敗代碼，都會保留在描述結果、護欄中繼資料（`audioFusionRuns`/`audioFusionPartials`/`audioFusionFailureCodes`）、結果快取中繼資料，以及橋接融合計數器中。預設的 Video Bridge 路徑不會叫用語音轉文字，也不會下載第二份媒體副本；若未明確提供該軌道，則仍僅處理影片。
 
-**文字記錄保留（#12150 P1）。** 這會在視訊橋接（本身是選擇加入的）呈現文字記錄提示時自動應用 — 沒有單獨的保留標誌。當請求呈現任何文字記錄提示（呼叫者聲明的 `transcript` 或融合的 `audioTranscript`）時，防護欄會將其標記為 `videoBridgeObserved`，並產生視訊描述的編輯陰影 — 一個相同的呈現，其中每個提示的自由文本主體都被 `[redacted-video-transcript]` 取代，這是透過在字串組裝之前替換結構化提示欄位來建構的（絕不是透過解析扁平化文本，因此沒有任何提示內容 — 無論是惡意的還是普通的，包括包含 `]` 的主體，例如 `[inaudible]` / `[music]` — 可以倖存）。持久的呼叫日誌請求主體會將每個視訊衍生的文本部分替換為該編輯陰影，透過內容相等性進行匹配；`fullText` 錨點會從完成的預呼叫防護欄負載中重新讀取，因此在後續鏈式防護欄（PII 和憑證遮罩器，優先級 10/95）就地重寫描述文本之後，以及在系統提示/交接/記憶體注入重塑訊息陣列之後，匹配仍然成功。發送到模型上游的主體保持不變。觀察到的請求也不會填充任何持久記憶體（請求和回應衍生的提取都會被跳過），因此模型自己的回覆無法將文字記錄文本回顯到記憶體中。
+**逐字稿保留（#12150 P1）。** 每當 Video Bridge（本身為選擇啟用）呈現逐字稿提示時，此機制便會自動套用——沒有單獨的保留旗標。當請求呈現任何逐字稿提示（呼叫端宣告的 `transcript` 或融合後的 `audioTranscript`）時，護欄會將其標記為 `videoBridgeObserved`，並產生影片描述的遮蔽影子副本——此副本的呈現形式完全相同，但每個提示的自由文字主體都會替換為 `[redacted-video-transcript]`；其建構方式是在組合字串之前替換結構化提示欄位（絕不剖析扁平化文字，因此任何提示內容——無論是對抗性或一般內容，包括含有 `]` 的主體，例如 `[inaudible]`/`[music]`——都無法殘留）。持久化的呼叫日誌請求本文會根據內容相等性進行比對，將每個由影片衍生的文字部分替換為該遮蔽影子副本；`fullText` 錨點會從完成的呼叫前護欄承載資料中重新讀取，因此，即使後續鏈式護欄（PII 與憑證遮罩器，優先順序為 10/95）就地重寫描述文字，且系統提示詞／移交／記憶體注入重新塑造訊息陣列，比對仍可成功。傳送至上游模型的本文維持不變。已觀察的請求也不會填入任何持久性 Memory（會略過從請求與回應衍生的擷取），因此模型本身的回覆無法將逐字稿文字回顯至 Memory。
 
-**原始影片欄位 (#12430)。** 啟用橋接且原生影片支援未知或不可用時，已定義的 `transcript`/`audioTranscript` 欄位也會觸發 `videoBridgeObserved`，即使描述產生失敗或達到 `maxVideos` 限制也是如此。`null` 和空字串也計入；缺少的欄位和非影片中繼資料不計入。保留的副本會遮蔽這些欄位或省略整個請求，同時略過快取和 Memory。傳送給供應商的資料維持不變。
+**原始影片欄位（#12430）。** 啟用橋接且原生影片支援未知或不存在時，已定義的 `transcript`/`audioTranscript` 欄位也會啟用 `videoBridgeObserved`，即使描述失敗或達到 `maxVideos` 限制亦然。`null` 與空字串都算在內；缺少的欄位與非影片中繼資料則不算。保留的副本會遮蔽這些欄位或省略請求，並略過快取／Memory。提供者承載資料維持不變。
 
-額外保留的副本使用相同的觀察請求訊號。原始的預防護欄客戶端請求快照、記憶體中的待處理請求以及早期被拒絕的請求日誌會在視訊部分中結構性地替換文字記錄欄位；由管道階段和上下文交接合成的字串提示會在持久化請求主體接收器處被編輯。持久的 `video_content_removed` 標記會使 `previous_response_id` 續接失敗關閉，而不是重建被有意丟棄的文本。如果觀察到的請求在日誌記錄之前丟失了其每個部分的編輯陰影，或者即使幾個視訊陰影中的一個在後續請求變異後未能匹配，則保留的請求主體將完全被省略，而不是保留部分編輯的文字記錄。
+其他保留的副本會使用相同的已觀察請求訊號。原始的護欄前用戶端請求快照、記憶體內待處理請求，以及早期遭拒請求的日誌，會以結構化方式替換影片部分中的逐字稿欄位；由管線階段與內容移交合成的字串提示詞，則會在持久化請求本文的接收端進行遮蔽。持久化的 `video_content_removed` 標記會使 `previous_response_id` 接續以封閉方式失敗，而非重建已刻意捨棄的文字。如果已觀察的請求在記錄前遺失其個別部分的遮蔽影子副本，或在後續請求變更後，多個影片影子副本中即使只有一個比對失敗，則會完全省略保留的請求本文，而不是保留僅部分遮蔽的逐字稿。
 
-對於觀察到的請求，模型回應可能會引用文字記錄的任何部分，而沒有結構化的提示邊界。因此，其持久化的呼叫日誌 `responseBody` 會被一個省略標記取代；詳細的管道工件（可能包括上游/客戶端主體和串流區塊）不會被保留。語義、冪等性和推理重播快取會繞過該請求的讀寫操作。提供者請求和客戶端可見的回應保持不變。當詳細工件被省略時，早期的保持連接位元組會從臨時緩衝區中排出。Kiro 的格式錯誤 EventStream 警告只報告負載的位元組計數，從不報告其內容或 JSON 解析器的原始錯誤。這並不聲稱每個不相關的提供者/插件診斷都已審核；更廣泛的保留接收器掃描在 #11658 中追蹤。
+對於已觀察的請求，模型回應可能會引用逐字稿的任何部分，而不具有結構化提示邊界。因此，其持久化呼叫日誌中的 `responseBody` 會替換為省略標記；詳細的管線成品（可能包含上游／用戶端本文與串流區塊）不會保留。該請求會略過語意、冪等性與推理重播快取的讀取和寫入。提供者請求與用戶端可見回應維持不變。省略詳細成品時，會從暫存緩衝區排空早期的 keepalive 位元組。Kiro 的格式錯誤 EventStream 警告僅會回報承載資料的位元組數，絕不回報其內容或 JSON 剖析器的原始錯誤。
+這不代表所有不相關的提供者／外掛程式診斷都已完成稽核；更廣泛的保留接收端清查工作會在 #11658 中追蹤。
 
-內部 `/api/modality-bridge/video/drilldown` 生命週期是一個獨立的、迴路/令牌認證的快取基底。每個操作還需要一個規範的不透明主體 ID。在啟用生產呼叫者之前，它必須從已認證的租戶中派生該 ID，並且絕不能轉發客戶端選擇的值。快取鍵將該主體綁定到規範的會話和視訊參考 ID，僅儲存其 SHA-256 派生的鍵，並將讀取和刪除的範圍限定在同一主體。快取每個條目最多儲存 16 個派生的 JPEG 幀，在十分鐘後使其過期，並支援有界限的 `start`/`end` 讀取或明確的會話刪除。
+內部 `/api/modality-bridge/video/drilldown` 生命週期是一個獨立的、經回送位址／權杖驗證的快取基礎層。每項操作也都需要標準的不透明主體 ID。在啟用正式環境呼叫端之前，該呼叫端必須從已驗證的租戶衍生此 ID，且絕不能轉送由用戶端選定的值。快取鍵會將該主體繫結至標準工作階段與影片參照 ID，僅儲存其由 SHA-256 衍生的鍵，並將讀取與刪除都限定於同一主體。快取中每個項目最多儲存 16 個衍生的 JPEG 畫面、於十分鐘後使其過期，並支援有界的 `start`/`end` 讀取或明確刪除工作階段。
 
-每個主體限制為 16 個條目和 64 MiB 的規範 JPEG 資料。這些限制獨立於全球 64 個條目/256 MiB 的上限：主體配額壓力只會驅逐該主體最近最少使用的條目，然後才會考慮全球 LRU 驅逐。過期條目會在快取活動時從主體和全球帳戶中清除，而取消和驗證失敗不會提交部分替換。
+每個主體最多可有 16 個項目，以及 64 MiB 的標準 JPEG 資料。這些限制獨立於全域的 64 個項目／256 MiB 上限：在主體配額壓力下，只會先逐出該主體最近最少使用的項目，之後才考慮全域 LRU 逐出。快取活動發生時，會從主體與全域計量中清除過期項目；取消與驗證失敗則不會提交部分替換。
 
-快取會拒絕非規範的 Base64、過多的填充、非 JPEG 媒體、格式錯誤或截斷的 JPEG，以及在有界限的全圖像 `sharp` 解碼期間產生警告的 JPEG。它會將每個接受的圖像重新編碼為規範的 JPEG，從解碼的位元組中派生寬度和高度，而不是信任呼叫者欄位，並丟棄任何尾隨的多語言位元組而不是保留它們。只有有界限的規範壓縮緩衝區會計入兩個配額。JSON 線路限制包括 32 MiB 解碼輸入上限的 Base64 開銷。每個儲存的派生都會記錄其已驗證的 JPEG 格式/解析度、採樣策略、派生版本、建立時間、伺服器計算的內容雜湊，以及雜湊的父參考加上受信任呼叫者的父內容雜湊。在原子快取提交之前，會在非同步解碼/雜湊階段之間檢查取消。
+快取會拒絕非標準 Base64、過量填充、非 JPEG 媒體、格式錯誤或遭截斷的 JPEG，以及在受限的完整影像 `sharp` 解碼期間產生警告的 JPEG。它會將每個接受的影像重新編碼為標準 JPEG，從解碼後的位元組取得寬度與高度，而不信任呼叫端欄位，並捨棄任何尾隨的多格式混合位元組，而不是予以保留。只有受限的標準壓縮緩衝區會計入兩項配額。JSON 傳輸限制包含 32 MiB 解碼輸入上限所需的 Base64 額外負荷。每個儲存的衍生項目都會記錄其經驗證的 JPEG 格式／解析度、取樣策略、衍生版本、建立時間、伺服器計算的內容雜湊，以及經雜湊處理的父項參照與受信任呼叫端提供的父項內容雜湊。在不可分割地提交至快取前，會於非同步解碼／雜湊階段之間檢查是否取消。
 
-此批次尚未將生產者連接到路由，也未提供多解析度變體選擇。因此，透明的視訊橋接請求路徑不會產生額外工作，而租戶綁定的主體派生和完整的 FU-08 多解析度生命週期仍是明確的後續工作，而非已完成的行為。
+此批次尚未將正式環境的產生端連接至路由，也未提供多解析度變體選擇。因此，透明的 Video Bridge 請求路徑不會增加任何工作，而租戶繫結的主體衍生流程與完整的 FU-08 多解析度生命週期，仍明確屬於後續工作，而非記載為已完成的行為。
 
-影格會使用已配置的視訊模型依序加上字幕。空的視訊覆寫會繼承 Vision 設定；如果兩者都為空，Vision 自動路由器會選擇有效的具備視覺功能的模型。成功的字幕會將原始部分替換為穩定的 `[Video description:` 前綴，該前綴也將文字標記為不可信賴的媒體衍生觀察結果，並告知下游模型不要遵循媒體中找到的指令。影格字幕快取鍵包含 JPEG 位元組、提示、時間戳記和有效模型；只有成功的字幕會被快取。快取條目會保留實際成功的生產者模型，包括備用模型；當不同影格由不同模型產生時，橋接器會報告 `mixed`。快取命中會重複使用該生產者身份，而不是將其重新標記為請求的路由計畫。整個視訊的結果快取會根據所有會改變輸出的輸入進行鍵控 — 提示、有效模型、取樣策略、影格計數、語義分析模式、正規化焦點提示的 SHA-256 指紋、焦點視窗、`transcript`、`audioTranscript` 和聯絡表標誌 — 因此，更改這些維度中的任何一個都會導致快取未命中，絕不會是過時的重複使用。視覺去重策略版本、閾值和有界候選影格計數也明確地包含在結果快取鍵和中繼資料中；因此，策略變更無法重複使用過時的整個視訊描述。結果快取 v4 中繼資料保留模式和指紋，絕不保留原始使用者任務。防護欄中繼資料會報告請求和有效的分析模式；如果請求的 `focused` 模式沒有可用的使用者文字，則會報告為實際上是 `full`。
+影格會使用設定的 Video 模型依序加上描述。空白的 Video 覆寫值會繼承 Vision 設定；若兩者皆為空白，Vision 自動路由器會選取實際使用且具備視覺能力的模型。成功產生的描述會取代原始部分，並使用穩定的 `[Video description:` 前綴；此前綴也會將文字標示為衍生自不受信任媒體的觀察結果，並告知下游模型不要遵循在媒體中發現的指示。影格描述快取鍵包含 JPEG 位元組、提示詞、時間戳記及實際使用的模型；僅快取成功產生的描述。快取項目會保留實際成功的產生端模型，包括後援模型；當不同影格由不同模型產生時，橋接器會回報 `mixed`。命中快取時會重用該產生端身分，而不會將其重新標示為所請求的路由方案。完整影片結果的快取鍵包含所有會改變輸出的輸入項目——提示詞、實際使用的模型、取樣策略、影格數、語意分析模式、正規化焦點提示的 SHA-256 指紋、焦點視窗、`transcript`、`audioTranscript` 及聯絡表旗標——因此，只要其中任何一個維度改變，都會造成快取未命中，絕不會重用過時結果。視覺去重策略版本、閾值及受限的候選影格數，也會明確包含於結果快取鍵與中繼資料中；因此，策略變更無法重用過時的完整影片描述。結果快取 v4 中繼資料會保留模式與指紋，但絕不保留原始使用者任務。防護欄中繼資料會同時回報請求的分析模式及實際使用的分析模式；若請求 `focused` 模式但沒有可用的使用者文字，則會回報實際使用的模式為 `full`。
 
-防護欄會提取所有支援的視訊部分，但描述的數量不超過 `modalityBridgeVideoMaxVideos`。對於經證實 `supportsVideo === false` 的目標，失敗和超出限制的視訊會變成明確的安全文字標記，因此不會有原始視訊存留。當功能未知時，這些部分保持不變。`supportsVideo === true` 的目標會繞過橋接器。客戶端請求中止訊號會透過下載、代理佇列、子程序和字幕呼叫傳播；中止會在視訊之間停止，絕不會開放給原始媒體而失敗。
+防護欄會擷取所有支援的影片部分，但描述的數量不會超過 `modalityBridgeVideoMaxVideos`。對於已證實 `supportsVideo === false` 的目標，失敗及超出限制的影片會轉為明確且安全的文字標記，因此不會留下任何原始影片。若能力未知，這些部分會保持不變。`supportsVideo === true` 的目標會略過橋接器。用戶端請求的中止訊號會傳播至下載、代理佇列、子程序及描述呼叫；中止會在影片之間停止處理，且絕不會採取故障開放方式傳遞原始媒體。
 
-執行時設定由資料庫支援並經過 Zod 驗證：
+執行階段設定由資料庫支援，並經 Zod 驗證：
 
-| Key                                 | Default     | Range / behavior                                                              |
-| :---------------------------------- | :---------- | :---------------------------------------------------------------------------- |
-| `modalityBridgeVideoEnabled`        | `false`     | 可選的執行時，選擇啟用                                                        |
-| `modalityBridgeVideoAnalysisMode`   | `"full"`    | `full` 保留通用字幕；`focused` 使用有界、不可信賴的最新使用者上下文           |
-| `modalityBridgeVideoModel`          | `""`        | 繼承 Vision Bridge 模型                                                       |
-| `modalityBridgeVideoFrameCount`     | `8`         | 1–16                                                                          |
-| `modalityBridgeVideoSamplingPolicy` | `"uniform"` | `uniform`、`scene_aware` 或比例 `segment_aware`；偵測器失敗時回退到 `uniform` |
-| `modalityBridgeVideoMaxVideos`      | `1`         | 1–4                                                                           |
-| `modalityBridgeVideoTimeout`        | `120000`    | 1000–120000 毫秒                                                              |
+| 鍵                                  | 預設值      | 範圍／行為                                                                         |
+| ----------------------------------- | ----------- | ---------------------------------------------------------------------------------- |
+| `modalityBridgeVideoEnabled`        | `false`     | 選用的執行階段功能，須明確啟用                                                     |
+| `modalityBridgeVideoAnalysisMode`   | `"full"`    | `full` 保留一般描述；`focused` 使用受限且不受信任的最新使用者情境                  |
+| `modalityBridgeVideoModel`          | `""`        | 繼承 Vision Bridge 模型                                                            |
+| `modalityBridgeVideoFrameCount`     | `8`         | 1–16                                                                               |
+| `modalityBridgeVideoSamplingPolicy` | `"uniform"` | `uniform`、`scene_aware`，或按比例的 `segment_aware`；偵測器失敗時會退回 `uniform` |
+| `modalityBridgeVideoMaxVideos`      | `1`         | 1–4                                                                                |
+| `modalityBridgeVideoTimeout`        | `120000`    | 1000–120000 ms                                                                     |
 
-超過 120 秒的舊版持久化視訊逾時值會被限制在代理截止時間；超過該限制的新設定寫入將被拒絕。`GET /api/modality-bridge/video/runtime` 在身份驗證或執行時探測之前需要受信任的加蓋回送本地性，然後需要管理員身份驗證。它僅在執行時不可用時返回 `available`、已淨化的 FFmpeg/ffprobe 版本以及一個固定原因。內部提取端點不是公共上傳 API：佇列飽和會返回 `503` 加上 `Retry-After`，呼叫者斷開連接會返回 `499`，固定的代理截止時間會返回 `504`。轉換後的回應會將 `video->text;model=<visionModel>;parts=<videos>` 添加到中央 `x-omniroute-modality-bridge` 標頭中，而不會移除 Vision 或 Audio 片段。
+舊版持久化的 Video 逾時值若超過 120 秒，會被限制為代理程式的期限；新設定寫入若超過該限制，則會遭拒絕。`GET /api/modality-bridge/video/runtime` 會先要求受信任且加蓋標記的迴路位址本機性，之後才進行驗證或執行階段探測，接著還會要求管理權限驗證。它只會傳回 `available`、經過清理的 FFmpeg/ffprobe 版本，以及執行階段不可用時的固定原因。內部擷取端點不是公開上傳 API：佇列飽和時會傳回 `503` 加上 `Retry-After`，呼叫端中斷連線時會傳回 `499`，固定的代理程式期限到期時則會傳回 `504`。經轉換的回應會將 `video->text;model=<visionModel>;parts=<videos>` 加入中央 `x-omniroute-modality-bridge` 標頭，而不會移除 Vision 或 Audio 區段。
 
 ### PII 遮罩器 (`piiMasker.ts`)
 
-在**兩個**階段執行。
+會在**兩個**階段執行。
 
-- **`preCall`** 會複製酬載，遍歷 `system`、`messages`、`input` 和 `prompt`（包括純字串項目），並將 `processPII()`（來自 `@/shared/utils/inputSanitizer`）應用於字串 `content`/`text` 欄位。當 `PII_REDACTION_ENABLED=true` 時，偵測到的 PII 會在出站酬載中被遮蔽。這與 `INPUT_SANITIZER_MODE`（僅控制提示注入策略）無關。當遮蔽關閉時，呼叫會記錄偵測計數而不重寫內容。
-- **`postCall`** 會深度複製回應，執行 `sanitizePIIResponse()` 以及 Responses-API 形狀遮罩器（`maskResponsesOutput` — 涵蓋 `output_text` 和 `output[].content[].text`）。如果發生任何遮蔽，修改後的回應會替換原始回應。
+- **`preCall`** 會複製酬載、巡訪 `system`、`messages`、`input` 與
+  `prompt`（包括純字串項目），並對字串類型的 `content`/`text` 欄位套用
+  `processPII()`（來自 `@/shared/utils/inputSanitizer`）。當
+  `PII_REDACTION_ENABLED=true` 時，偵測到的 PII 會在傳出的酬載中被遮蔽。
+  此行為與 `INPUT_SANITIZER_MODE` 無關（後者只控制提示注入政策）。停用遮蔽時，
+  呼叫會記錄偵測次數，但不會改寫內容。
+- **`postCall`** 會深層複製回應，執行 `sanitizePIIResponse()`，再執行
+  Responses API 格式的遮罩器（`maskResponsesOutput`——涵蓋
+  `output_text` 與 `output[].content[].text`）。若發生任何遮蔽，
+  修改後的回應會取代原始回應。
 
-防護欄從不阻塞；它只會註釋（`meta.detections`、`meta.redacted`）或重寫。
+此防護機制絕不封鎖；它只會加上註記（`meta.detections`、
+`meta.redacted`）或改寫內容。
 
-### 提示注入 (`promptInjection.ts`)
+### 提示注入（`promptInjection.ts`）
 
-偵測使用者提供內容中的對抗性結構並強制執行已配置的策略。行為由環境變數和建構函式選項驅動：
+偵測使用者所提供內容中的對抗性結構，並強制執行已設定的政策。其行為由環境變數與建構函式
+選項決定：
 
-| 設定     | 環境變數                                                                                           | 預設值 | 效果                                                                                                                                     |
-| -------- | -------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 已啟用   | `INPUT_SANITIZER_ENABLED`                                                                          | `true` | 當為 `false` 時，防護欄會短路。                                                                                                          |
-| 模式     | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE`                                                    | `warn` | 注入策略：`block`、`warn` 或 `log`。（`redact` 為向後兼容而接受，但**不會**移除注入文本；PII 重寫請求由 `PII_REDACTION_ENABLED` 控制。） |
-| 阻擋閾值 | `blockThreshold` 選項 / `INPUT_SANITIZER_BLOCK_THRESHOLD` (別名 `INJECTION_GUARD_BLOCK_THRESHOLD`) | `high` | 阻擋所需的最低嚴重性。預設情況下，中等嚴重性僅供觀察。                                                                                   |
+| 設定     | 環境變數                                                                                            | 預設值 | 效果                                                                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 啟用     | `INPUT_SANITIZER_ENABLED`                                                                           | `true` | 設為 `false` 時，防護機制會直接短路返回。                                                                                                       |
+| 模式     | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE`                                                     | `warn` | 注入政策：`block`、`warn` 或 `log`。（為向後相容也接受 `redact`，但它**不會**移除注入文字；請求中的 PII 改寫由 `PII_REDACTION_ENABLED` 控制。） |
+| 封鎖門檻 | `blockThreshold` 選項 / `INPUT_SANITIZER_BLOCK_THRESHOLD`（別名 `INJECTION_GUARD_BLOCK_THRESHOLD`） | `high` | 觸發封鎖所需的最低嚴重程度。使用預設值時，`Medium` 僅供觀察。                                                                                   |
 
-**模式優先順序** (`getMode`)：呼叫者 `options.mode` →
-`INJECTION_GUARD_MODE` **資料庫功能旗標覆寫** (儀表板 → 設定 →
-功能旗標) → `INJECTION_GUARD_MODE` 環境變數 → `INPUT_SANITIZER_MODE` 環境變數 →
-`warn`。因此，儀表板覆寫會優先於環境變數，所以功能旗標 UI 會即時控制運行的防護（無需重啟）。資料庫讀取是故障安全的：如果出錯，防護會回退到基於環境變數的行為；如果未設定覆寫，行為與僅基於環境變數的解析相同。
+**模式優先順序**（`getMode`）：呼叫端的 `options.mode` →
+`INJECTION_GUARD_MODE` **資料庫功能旗標覆寫值**（Dashboard → Settings →
+Feature Flags）→ `INJECTION_GUARD_MODE` 環境變數 → `INPUT_SANITIZER_MODE` 環境變數 →
+`warn`。因此，儀表板覆寫值的優先順序高於環境變數，讓 Feature Flags UI
+可以即時控制執行中的防護機制（無須重新啟動）。資料庫讀取採失效安全設計：
+若發生錯誤，防護機制會退回以環境變數為基礎的行為；若未設定覆寫值，
+其行為則與僅使用環境變數解析時完全相同。
 
 偵測來源：
 
-1.  來自 `@/shared/utils/inputSanitizer` 的 `sanitizeRequest()`（在管道其他地方使用的共享偵測器集）。
-2.  內建的 `DEFAULT_GUARD_PATTERNS`（目前為 `system_override_inline` 和
-    `markdown_system_block`，兩者均為 `high` 嚴重性）。
-3.  透過建構函數選項傳遞的可選 `customPatterns`（字串、正規表達式或
-    `{ name, pattern, severity }` 記錄）。
+1. 來自 `@/shared/utils/inputSanitizer` 的 `sanitizeRequest()`（管線中其他位置也會使用的共用偵測器
+   集合）。
+2. 內建的 `DEFAULT_GUARD_PATTERNS`（目前為 `system_override_inline` 與
+   `markdown_system_block`，兩者的嚴重程度皆為 `high`）。
+3. 透過建構函式選項傳入的選用 `customPatterns`（字串、正規表示式，
+   或 `{ name, pattern, severity }` 記錄）。
 
-當 `mode === "block"` **且**至少一個偵測達到嚴重性閾值時，`preCall` 會返回 `{ block: true, message: "Request rejected:
-suspicious content detected" }`。在 `warn`/`log` 模式下，防護欄會記錄日誌但允許呼叫。共享輔助函數 `evaluatePromptInjection()` 也被導出，供需要評估提示而無需透過註冊表（registry）的呼叫者使用。
+當 `mode === "block"` **且**至少有一項偵測結果達到嚴重程度
+門檻時，`preCall` 會傳回 `{ block: true, message: "Request rejected:
+suspicious content detected" }`。在 `warn`/`log` 模式下，防護機制會寫入日誌，
+但允許呼叫繼續進行。共用輔助函式 `evaluatePromptInjection()` 也會匯出，
+供需要在不經過登錄表的情況下評估提示的呼叫端使用。
 
-**掃描範圍 (v3.8.20)**：偵測器僅檢查合併提示文本的**前 16 KB** —
-在 `src/shared/utils/inputSanitizer.ts` 中為 `MAX_INJECTION_SCAN_BYTES = 16 * 1024` (16 384 位元組)。`detectInjection()` 和
-`evaluatePromptInjection()` 在運行模式循環之前都會 `slice(0, MAX_INJECTION_SCAN_BYTES)`。注入指令位於輸入的頂部附近，因此這可以在數百 KB 的負載上限制正規表達式 CPU/GC，而不會削弱偵測能力（參見 #3932, #4041）。
+**掃描上限（v3.8.20）：**偵測器只會檢查合併後提示文字的**前 16 KB**——
+`src/shared/utils/inputSanitizer.ts` 中的
+`MAX_INJECTION_SCAN_BYTES = 16 * 1024`（16 384 位元組）。
+`detectInjection()` 與 `evaluatePromptInjection()` 都會在執行模式迴圈前先呼叫
+`slice(0, MAX_INJECTION_SCAN_BYTES)`。注入指令通常位於輸入內容的開頭附近，
+因此這能限制數百 KB 酬載上的正規表示式 CPU/GC 用量，而不會削弱偵測能力（參見
+#3932、#4041）。
 
-### 憑證遮罩器 (`credentialMasker.ts`)
+### 憑證遮罩器（`credentialMasker.ts`）
 
-在**兩個**階段運行，是預設鏈中的最後一個（優先級 `95`）。從出站負載（訊息內容、工具呼叫參數、工具結果）**和**提供者回應中編輯掉眾所周知的 API 密鑰/秘密令牌模式，因此貼到提示中（或由工具結果回顯）的憑證不會洩露給上游提供者或返回給客戶端。
+會在**兩個**階段執行，且位於預設鏈的最後（優先順序 `95`）。它會從傳出酬載
+（訊息內容、工具呼叫引數、工具結果）**以及**提供者回應中遮蔽常見的
+API 金鑰／祕密權杖模式，避免貼入提示中的憑證（或由工具結果回顯的憑證）
+洩漏給上游提供者或傳回用戶端。
 
-- **僅限選擇啟用**，與 PII 編輯的約定相同（硬性規則 #20 相關）：除非
-  `settings.credentialRedactionEnabled === true` **或**
-  `CREDENTIAL_REDACTION_ENABLED=true`，否則禁用。如果關閉，防護欄將不執行任何操作 —
-  它從不阻擋，也從不重寫。
-- `redactCredentials()` 遍歷完整的負載/回應樹（`walkValue()`，原型污染安全，透過
-  `WeakSet` 實現循環安全），並將匹配項替換為 `[REDACTED:<type>]` 佔位符，僅複製實際更改的分支。
-- `CREDENTIAL_PATTERNS` 涵蓋了 LLM 提供者密鑰（OpenAI、OpenAI-proj、
-  Anthropic、Google、Hugging Face、Replicate）、VCS/SaaS 令牌（GitHub、Slack、
-  Linear、Notion、npm、Postman、Discord）、支付密鑰（Stripe、Square）、雲密鑰（AWS 存取密鑰、Twilio、SendGrid、Mailgun）、私鑰/JWTs、帶有憑證的連接字串（`mongodb://user:pass@...`
-  等），以及通用的 `Authorization`/`x-api-key`/`api-key`/`apikey` 標頭值模式。標頭形狀的密鑰（`authorization`、`x-api-key`、`api-key`、
-  `apikey`）是結構性地編輯（僅值，保留 `Bearer `/`Basic ` 等方案前綴），而不是透過通用文本正規表達式。
-- 防護欄從不阻擋；它只重寫（`modifiedPayload` /
-  `modifiedResponse`）並註釋（`meta.credentialsRedacted`、`meta.count`）。
+- **僅限選擇啟用**，遵循與 PII 遮蔽相同的慣例（接近硬性規則 #20）：
+  除非 `settings.credentialRedactionEnabled === true` **或**
+  `CREDENTIAL_REDACTION_ENABLED=true`，否則皆為停用。停用時，此防護機制不執行任何操作 —
+  絕不封鎖，也絕不改寫。
+- `redactCredentials()` 會遍歷完整的酬載／回應樹狀結構（`walkValue()`、
+  可防範原型污染，並透過 `WeakSet` 安全處理循環參照），將相符內容替換為
+  `[REDACTED:<type>]` 預留位置，且僅複製實際發生變更的分支。
+- `CREDENTIAL_PATTERNS` 涵蓋 LLM 提供者金鑰（OpenAI、OpenAI-proj、
+  Anthropic、Google、Hugging Face、Replicate）、VCS/SaaS 權杖（GitHub、Slack、
+  Linear、Notion、npm、Postman、Discord）、付款金鑰（Stripe、Square）、雲端
+  金鑰（AWS 存取金鑰、Twilio、SendGrid、Mailgun）、私密金鑰／JWT、
+  含憑證的連線字串（`mongodb://user:pass@...` 等），以及通用的
+  `Authorization`/`x-api-key`/`api-key`/`apikey` 標頭值
+  模式。具有標頭形式的鍵（`authorization`、`x-api-key`、`api-key`、
+  `apikey`）會以結構化方式進行遮蔽（僅遮蔽值，並保留
+  `Bearer `/`Basic ` 等配置方案前綴），而不是透過通用文字正規表示式處理。
+- 此防護機制絕不封鎖；只會改寫（`modifiedPayload` /
+  `modifiedResponse`）並加上註記（`meta.credentialsRedacted`、`meta.count`）。
 
-回歸防護：`tests/unit/credential-masker-guardrail.test.ts`。
+迴歸防護：`tests/unit/credential-masker-guardrail.test.ts`。
 
 ## 基礎契約（`base.ts`）
 

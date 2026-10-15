@@ -209,18 +209,25 @@ xAI বা Grok CLI সংযুক্ত করার সময় `1455`-এ�
 
 ---
 
-## token পরিচালনা
+## টোকেন পরিচালনা
 
 ```bash
 omniroute tokens create --name "laptop" --scope write [--expires 30]
-#   ↳ secret-টি শুধু একবার প্রিন্ট করে — এখনই কপি করুন
-omniroute tokens list                 # আড়াল করা: id, নাম, scope, prefix, status, মেয়াদ
-omniroute tokens revoke <id|prefix>   # অবিলম্বে revoke করুন
+#   ↳ গোপন মানটি শুধু একবার দেখায় — এখনই কপি করুন
+omniroute tokens list                 # আংশিক গোপন: id, name, scope, prefix, status, expiry
+omniroute tokens revoke <id|prefix>   # অবিলম্বে প্রত্যাহার করুন
 omniroute tokens scopes               # তিনটি scope ব্যাখ্যা করুন
 ```
 
-`tokens` command-এর জন্য একটি **admin** credential প্রয়োজন। আপনি ড্যাশবোর্ডের
-**Settings → Access Tokens** থেকেও token পরিচালনা করতে পারেন (তৈরি করা, revoke করা, একবার কপি করা)।
+`tokens` কমান্ডগুলোর জন্য একটি **admin** credential প্রয়োজন। এছাড়াও আপনি
+ড্যাশবোর্ডের **Settings → Access Tokens** অংশে টোকেন পরিচালনা করতে পারেন (তৈরি করা, প্রত্যাহার করা, একবার কপি করা)।
+
+কোনো টোকেনকে কখনোই তার স্রষ্টার চেয়ে বেশি privilege দিয়ে তৈরি করা যায় না। একটি
+`admin` টোকেন শুধু অপারেটরই তৈরি করতে পারেন — ড্যাশবোর্ড session, সার্ভারেই থাকা
+local CLI, password-সহ `omniroute connect`, অথবা login নিষ্ক্রিয় থাকা কোনো
+instance থেকে। Machine credential (একটি `admin` access token,
+অথবা `manage`/`admin` scope-সহ একটি API key) শুধু `write` এবং `read`
+টোকেন তৈরি করতে পারে; এগুলোর কাছে `--scope admin` অনুরোধ করলে `403` ফেরত আসে।
 
 ---
 
