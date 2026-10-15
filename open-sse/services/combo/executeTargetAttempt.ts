@@ -62,8 +62,6 @@ import {
   isProviderCircuitOpenResult,
   isComboRequestScopedFailure as isScopedFailure,
   shouldRecordModelLockoutForComboFailure,
-  isStreamReadinessFailureErrorBody,
-  isStreamEarlyEofErrorBody,
   isLocalKeyPolicyBreachErrorBody,
   isLocalQueueCapacityErrorBody,
   toRecordedTarget,
@@ -108,6 +106,12 @@ import type { ProtectedPriorityStopCause } from "./protectedPriorityStopStatus.t
 import { isProviderProbeResponse } from "../../../src/shared/utils/providerProbeResult.ts";
 import { recordLocalCircuitRefusal } from "./localCircuitRefusal.ts";
 import { getStrategyTraits } from "./strategyRegistry.ts";
+import {
+  handleEmptyContentRetry,
+  isEmptyContentResponse,
+  isEarlyEofResponse,
+  isReadinessFailure,
+} from "./emptyContentRetry.ts";
 
 export async function executeTargetAttempt(
   opts: ExecuteTargetAttemptOptions
@@ -136,6 +140,7 @@ export async function executeTargetAttempt(
     });
 
   const familyTried = new Set<string>();
+  let emptyTurnConnectionId: string | null = null;
   // Retry loop for transient errors
   for (let retry = 0; retry <= deps.maxRetries; retry++) {
     // Fix #1681: Bail out immediately if the client has disconnected
@@ -342,6 +347,7 @@ export async function executeTargetAttempt(
     }
     const result = await deps.handleSingleModelWithTimeout(attemptBody, modelStr, {
       ...targetForAttempt,
+      emptyTurnConnectionId,
       effectiveComboStrategy: deps.strategy,
       failoverBeforeRetry: deps.config.failoverBeforeRetry,
     });
@@ -408,7 +414,12 @@ export async function executeTargetAttempt(
         state.requestScopedFailureSeen ||= qualityFailure.requestScoped;
         if (qualityFailure.requestScoped)
           state.requestScopedRejectedModelKeys?.add(requestScopedReplayKey(modelStr));
-        if (provider && rawModel && !qualityFailure.requestScoped) {
+        if (
+          provider &&
+          rawModel &&
+          !qualityFailure.requestScoped &&
+          quality.upstreamFailure?.code !== "empty_content"
+        ) {
           const mlSettings = resolveModelLockoutSettings(deps.settings);
           if (mlSettings.enabled && mlSettings.errorCodes.includes(qualityFailure.status)) {
             recordModelLockoutFailure(
@@ -435,7 +446,12 @@ export async function executeTargetAttempt(
           latencyMs: Date.now() - deps.startTime,
         });
         state.observeFailure(false, target.executionKey);
-        if (handlePreContentStreamRetry(quality, retry, deps, modelStr)) continue;
+        if (handlePreContentStreamRetry(quality, retry, deps, modelStr)) {
+          if (quality.upstreamFailure?.code === "empty_content") {
+            emptyTurnConnectionId = effectiveConnectionId || null;
+          }
+          continue;
+        }
         familyTried.add(modelStr);
         // A request-scoped refusal (invalid request, context overflow) is a property of
         // the request, not of the effort tier — replaying it on a sibling alias of the
@@ -760,13 +776,24 @@ export async function executeTargetAttempt(
       return null;
     }
 
-    const isStreamReadinessFailure =
-      (result.status === 502 || result.status === 504) &&
-      isStreamReadinessFailureErrorBody(errorBody);
-    // An early EOF is an upstream failure, not a readiness probe — the breaker must
-    // see it even though the transient-retry path below treats both codes alike.
-    const isStreamEarlyEof =
-      (result.status === 502 || result.status === 504) && isStreamEarlyEofErrorBody(errorBody);
+    if (isEmptyContentResponse(result, errorBody)) {
+      const emptyContentRetry = handleEmptyContentRetry({
+        response: result,
+        errorText,
+        modelStr,
+        retry,
+        protectedPriorityTarget,
+        target,
+        state,
+        deps,
+      });
+      emptyTurnConnectionId = emptyContentRetry.connectionId;
+      if (emptyContentRetry.shouldRetry === true) continue;
+      return emptyContentRetry.result;
+    }
+
+    const isStreamReadinessFailure = isReadinessFailure(result, errorBody);
+    const isStreamEarlyEof = isEarlyEofResponse(result, errorBody);
 
     // FIX 5: a local per-API-key policy 429 (token limit, budget) must not cool shared accounts.
     const isTokenLimitBreach = result.status === 429 && isLocalKeyPolicyBreachErrorBody(errorBody);
