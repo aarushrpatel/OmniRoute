@@ -1027,11 +1027,8 @@ export function isModelLocked(
   model: string | null | undefined
 ): boolean {
   if (!model) return false;
-  return exactModelLock.isAnyKeyLocked(
-    modelLockouts,
-    cleanupModelLockKey,
-    getModelLockKeys(provider, connectionId, model)
-  );
+  const info = getModelLockoutInfo(provider, connectionId, model);
+  return Boolean(info && info.remainingMs > 0);
 }
 
 /**
@@ -1043,6 +1040,7 @@ export function getModelLockoutInfo(
   model: string | null | undefined
 ) {
   if (!model) return null;
+  if (!connectionId) return getModelLockoutInfoAcrossConnections(provider, model);
   const entry = exactModelLock.findLatestLockEntry(
     modelLockouts,
     cleanupModelLockKey,
@@ -1054,6 +1052,26 @@ export function getModelLockoutInfo(
     remainingMs: entry.until - Date.now(),
     lockedAt: new Date(entry.lockedAt).toISOString(),
     failureCount: entry.failureCount,
+  };
+}
+
+function getModelLockoutInfoAcrossConnections(provider: string, model: string | null | undefined) {
+  if (!model) return null;
+  const now = Date.now();
+  let soonest: ModelLockoutEntry | null = null;
+  for (const [key, entry] of modelLockouts) {
+    cleanupModelLockKey(key, now);
+    if (entry.until <= now) continue;
+    const parsed = exactModelLock.parseModelLockKey(key);
+    if (parsed.provider !== provider || parsed.model !== model) continue;
+    if (!soonest || entry.until < soonest.until) soonest = entry;
+  }
+  if (!soonest) return null;
+  return {
+    reason: soonest.reason,
+    remainingMs: soonest.until - now,
+    lockedAt: new Date(soonest.lockedAt).toISOString(),
+    failureCount: soonest.failureCount,
   };
 }
 
