@@ -1,0 +1,1 @@
+- Restore strict-null type checking for Claude request and response translation and DSML closing-tag offsets, and include existing regression tests in the nightly mutation-test registry. Refs #15306.

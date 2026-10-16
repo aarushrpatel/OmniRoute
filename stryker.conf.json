@@ -42,6 +42,17 @@
   "plugins": ["@stryker-mutator/tap-runner"],
   "tap": {
     "testFiles": [
+      "tests/unit/account-fallback-credit-signals-4439.test.ts",
+      "tests/unit/anthropic-404-model-scope-16406.test.ts",
+      "tests/unit/authz-client-api-multi-credential.test.ts",
+      "tests/unit/codex-reset-credits.test.ts",
+      "tests/unit/combo-connection-cooldown-terminal-16718.test.ts",
+      "tests/unit/combo-pinned-cooldown-terminal-16718.test.ts",
+      "tests/unit/gemini-daily-quota-violation.test.ts",
+      "tests/unit/gemini-schema-budget.test.ts",
+      "tests/unit/glm-1113-insufficient-balance-4147.test.ts",
+      "tests/unit/opencode-free-synced-catalog-and-no-connection-15540.test.ts",
+      "tests/unit/upstream-error-call-log-16558.test.ts",
       "tests/unit/credential-scope-diagnostics-15889.test.ts",
       "tests/unit/account-weighted-runtime-16459.test.ts",
       "tests/unit/codex-reasoning-replay-retry.test.ts",

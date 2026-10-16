@@ -14,6 +14,41 @@ const { parseDsmlToolCalls } = await import("../../open-sse/utils/dsmlToolCalls.
 
 const FW = "\u{FF5C}"; // full-width vertical line ｜
 
+test("parseDsmlToolCalls: successive close matches preserve surrounding text and arguments", () => {
+  const content =
+    `before <${FW}DSML${FW}:Read><path>a.txt</path></${FW}DSML${FW}:Read>` +
+    ` between <|DSML|:Write><parameter name="text">hello</parameter></|DSML|:Write> after`;
+  const result = parseDsmlToolCalls(content);
+  assert.equal(result.content, "before  between  after");
+  assert.equal(result.holdback, "");
+  assert.deepEqual(
+    result.toolCalls.map((call) => ({
+      name: call.function.name,
+      arguments: JSON.parse(call.function.arguments),
+    })),
+    [
+      { name: "Read", arguments: { path: "a.txt" } },
+      { name: "Write", arguments: { text: "hello" } },
+    ]
+  );
+});
+
+test("parseDsmlToolCalls: a closer at offset zero consumes an empty call", () => {
+  const result = parseDsmlToolCalls("<|DSML|:Ping></|DSML|:Ping>tail");
+  assert.equal(result.content, "tail");
+  assert.equal(result.holdback, "");
+  assert.equal(result.toolCalls.length, 1);
+  assert.deepEqual(JSON.parse(result.toolCalls[0].function.arguments), {});
+});
+
+test("parseDsmlToolCalls: a missing matching closer retains the entire unfinished call", () => {
+  const unfinished = "<|DSML|:Read><path>a.txt</path></|DSML|:Write>";
+  const result = parseDsmlToolCalls(`before ${unfinished}`);
+  assert.equal(result.content, "before ");
+  assert.equal(result.holdback, unfinished);
+  assert.deepEqual(result.toolCalls, []);
+});
+
 test("parseDsmlToolCalls: complete <｜DSML｜:Tool>...</｜DSML｜:Tool> becomes a tool call", () => {
   const content = `<${FW}DSML${FW}:Read>\n<path>images/omniroute.png</path>\n</${FW}DSML${FW}:Read>`;
   const result = parseDsmlToolCalls(content);
