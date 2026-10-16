@@ -15,6 +15,11 @@
 import { getGitHubCopilotInternalUserHeaders } from "../../config/providerHeaderProfiles.ts";
 import { toRecord, toNumber, getFieldValue, clampPercentage, toDisplayLabel } from "./scalars.ts";
 import { type UsageQuota, parseResetTime } from "./quota.ts";
+import {
+  GITHUB_AI_CREDITS_QUOTA_KEY,
+  parseGitHubCreditsUsed,
+  readGitHubCreditLimit,
+} from "../githubCreditLimit.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -59,7 +64,11 @@ export async function getGitHubUsage(accessToken?: string, providerSpecificData?
       const resetAt = parseResetTime(
         getFieldValue(dataRecord, "quota_reset_date", "quotaResetDate")
       );
-      const premiumQuota = formatGitHubQuotaSnapshot(snapshots.premium_interactions, resetAt);
+      const premiumSnapshot = toRecord(snapshots.premium_interactions);
+      const creditsUsed = parseGitHubCreditsUsed(premiumSnapshot.credits_used);
+      const premiumQuota = isUnallocatedGitHubQuota(premiumSnapshot, creditsUsed)
+        ? null
+        : formatGitHubQuotaSnapshot(snapshots.premium_interactions, resetAt);
       const chatQuota = formatGitHubQuotaSnapshot(snapshots.chat, resetAt);
       const completionsQuota = formatGitHubQuotaSnapshot(snapshots.completions, resetAt);
       const quotas: Record<string, UsageQuota> = {};
@@ -73,9 +82,17 @@ export async function getGitHubUsage(accessToken?: string, providerSpecificData?
       if (shouldDisplayGitHubQuota(completionsQuota)) {
         quotas.completions = completionsQuota;
       }
+      if (creditsUsed !== undefined) {
+        quotas[GITHUB_AI_CREDITS_QUOTA_KEY] = buildGitHubAiCreditsQuota(
+          creditsUsed,
+          readGitHubCreditLimit(providerSpecificData),
+          parseResetTime(premiumSnapshot.quota_reset_at) || resetAt
+        );
+      }
 
       return {
         plan: inferGitHubPlanName(dataRecord, premiumQuota),
+        tokenBasedBilling: dataRecord.token_based_billing === true,
         resetDate: getFieldValue(dataRecord, "quota_reset_date", "quotaResetDate"),
         quotas,
       };
@@ -186,6 +203,51 @@ export function formatGitHubQuotaSnapshot(
     remainingPercentage,
     resetAt,
     unlimited,
+  };
+}
+
+/**
+ * A premium quota GitHub allocated nothing to (zero allowance, no credits used)
+ * is not an exhausted quota — hide it instead of rendering a red 0% row.
+ */
+function isUnallocatedGitHubQuota(snapshot: JsonRecord, creditsUsed: number | undefined): boolean {
+  if (Object.keys(snapshot).length === 0 || snapshot.unlimited === true) return false;
+  return toNumber(snapshot.entitlement, Number.NaN) === 0 && (creditsUsed ?? 0) === 0;
+}
+
+/**
+ * AI Credits row: `credits_used` as reported by GitHub. Bounded by the local
+ * per-connection limit when one is set, otherwise an unbounded informational row.
+ * Marked `fractionReported: false` so the quota cache treats it as telemetry —
+ * it never exhausts the account on its own; the local cutoff is applied by the
+ * account-selection policy (githubCreditLimit.ts) against the live limit.
+ */
+function buildGitHubAiCreditsQuota(
+  creditsUsed: number,
+  limit: number | null,
+  resetAt: string | null
+): UsageQuota {
+  if (limit === null) {
+    return {
+      used: creditsUsed,
+      total: 0,
+      unlimited: true,
+      resetAt,
+      displayName: "AI Credits",
+      creditsUsed,
+      fractionReported: false,
+    };
+  }
+  return {
+    used: creditsUsed,
+    total: limit,
+    remaining: Math.max(limit - creditsUsed, 0),
+    remainingPercentage: limit > 0 ? clampPercentage((1 - creditsUsed / limit) * 100) : 0,
+    unlimited: false,
+    resetAt,
+    displayName: "AI Credits (local limit)",
+    creditsUsed,
+    fractionReported: false,
   };
 }
 
