@@ -31,7 +31,13 @@ import {
   forwardOpencodeClientHeaders,
   resolveOpencodeCliDefaults,
 } from "../utils/opencodeHeaders.ts";
+import { isOpencodeClient } from "../utils/opencodeClient.ts";
 import { projectOpencodeSessionBody } from "../utils/opencodeSessionIdentity.ts";
+import {
+  ensurePublishedEndpoint,
+  getPublishedEndpoint,
+  resolveOpencodeAuthHeaders,
+} from "../utils/opencodePublishedEndpoint.ts";
 import { listForRequest, releaseRequestList } from "./opencodeAccountScope.ts";
 import type { ScopedAccount, ScopedAccountHealth } from "./opencodeAccountScope.ts";
 import { guardRequiredAccountProxies } from "./opencodeRequiredProxy.ts";
@@ -64,7 +70,7 @@ import {
   noteFreeTierOutcome,
   prepareFreeTierRequest,
   rebuildJsonFromForcedStream,
-  surfaceFromBaseUrl,
+  surfaceForProvider,
 } from "./opencodeFreeTierContract.ts";
 import {
   applyMuseSparkMinOutputTokens,
@@ -116,13 +122,6 @@ import {
   readPoolStrainMarker,
   runParkAndReplay,
 } from "./opencodeParkResume.ts";
-
-/**
- * The main OpenCode Zen host, shared by the `opencode` and `opencode-zen`
- * registry entries. Used to scope the `x-api-key` auth override (#12633) away
- * from `opencode-go`, which serves a different upstream (`.../zen/go/v1`).
- */
-const ZEN_BASE_URL = "https://opencode.ai/zen/v1";
 
 /**
  * Per-account proxy configuration, persisted by NoAuthAccountCard under
@@ -257,7 +256,15 @@ export class OpencodeExecutor extends BaseExecutor {
     if (context) context.session = value;
     else this._sessionFallback = value;
   }
-  private _surface = () => surfaceFromBaseUrl(this.config?.baseUrl);
+  private get _fromOpencodeClient(): boolean {
+    return currentRequestContext()?.opencodeClient ?? false;
+  }
+  private set _fromOpencodeClient(value: boolean) {
+    const context = currentRequestContext();
+    if (context) context.opencodeClient = value;
+  }
+  private _surface = (credentials?: ProviderCredentials | null) =>
+    surfaceForProvider(this.provider, credentials?.providerSpecificData?.baseUrl);
 
   /** Free-tier retry context: the request-scoped contract state the retry helper needs. */
   private freeTierRetryCtx(input: ExecuteInput) {
@@ -265,7 +272,7 @@ export class OpencodeExecutor extends BaseExecutor {
     // request body, so read it back from there instead of a shared field.
     const attempt = attemptFor(input.body);
     return {
-      surface: this._surface(),
+      surface: this._surface(input.credentials),
       provider: this.provider,
       requestFormat: this._requestFormat,
       clientSession: this._clientSession,
@@ -385,7 +392,7 @@ export class OpencodeExecutor extends BaseExecutor {
   }
 
   /**
-   * Count a refusal that says something about the borrowed tools, on a path
+   * Count a refusal (borrowed tools, published-endpoint re-read) on a path
    * that already holds the verdict. Only 403/451 carry that verdict, so only
    * they pay for a body read — anything else leaves the store alone.
    */
@@ -395,7 +402,7 @@ export class OpencodeExecutor extends BaseExecutor {
     log: ExecuteInput["log"]
   ): Promise<void> {
     const attempt = attemptFor(input.body);
-    if (!attempt || !attempt.borrowed || attempt.probe) return;
+    if (!attempt || attempt.probe) return;
     if (response.status !== 403 && response.status !== 451) return;
     let bodyText: string | null = null;
     try {
@@ -536,6 +543,8 @@ export class OpencodeExecutor extends BaseExecutor {
 
   private async executeOnce(input: ExecuteInput) {
     this._requestFormat = resolveOpencodeTargetFormat(this.provider, input.model);
+    // Cold start (nothing in memory or on disk): the first request waits for the catalog.
+    await ensurePublishedEndpoint(this.provider);
 
     // #8681: Gate premium opencode models behind a usable API key.
     // When the connection is keyless (no apiKey, no accessToken) and the model
@@ -758,7 +767,7 @@ export class OpencodeExecutor extends BaseExecutor {
         return elapsed;
       };
       const appliedEgress = egressPacing.createAppliedEgressTracker(
-        this.buildUrl(String(input.model ?? ""), Boolean(input.stream)),
+        this.buildUrl(String(input.model ?? ""), Boolean(input.stream), 0, input.credentials),
         resolveProxyForRequest
       );
       const { readAppliedKey, keyOfMember, noteRefused } = appliedEgress;
@@ -1277,9 +1286,8 @@ export class OpencodeExecutor extends BaseExecutor {
     credentials: ProviderCredentials | null = null
   ) {
     void urlIndex;
-    void credentials;
-
-    const base = this.config.baseUrl;
+    // Connection override (#6147) > published endpoint > registry URL.
+    const base = this.resolveBaseUrl(credentials, getPublishedEndpoint(this.provider));
     switch (this._requestFormat) {
       case "claude":
         return `${base}/messages`;
@@ -1290,20 +1298,6 @@ export class OpencodeExecutor extends BaseExecutor {
       default:
         return `${base}/chat/completions`;
     }
-  }
-
-  /**
-   * #12633: OpenCode Zen's `/v1/responses` endpoint (reached when
-   * `_requestFormat === "openai-responses"`, e.g. Muse Spark Contributor
-   * models) requires `x-api-key`, not `Authorization: Bearer` — unlike the
-   * default `/chat/completions` endpoint on the same host, which accepts
-   * Bearer. Scoped by baseUrl (not provider id/alias) so this only applies to
-   * the main Zen host (`opencode` / `opencode-zen`, both `https://opencode.ai/zen/v1`)
-   * and never to opencode-go, which serves Responses-format models from a
-   * different upstream (`https://opencode.ai/zen/go/v1`) that expects Bearer.
-   */
-  private usesZenApiKeyAuth(): boolean {
-    return this._requestFormat === "openai-responses" && this.config?.baseUrl === ZEN_BASE_URL;
   }
 
   buildHeaders(
@@ -1321,13 +1315,8 @@ export class OpencodeExecutor extends BaseExecutor {
       ? this.resolveEffectiveKey(credentials) || credentials.accessToken
       : undefined;
 
-    if (key) {
-      if (this._requestFormat === "claude" || this.usesZenApiKeyAuth()) {
-        headers["x-api-key"] = key;
-      } else {
-        headers["Authorization"] = `Bearer ${key}`;
-      }
-    }
+    // Bearer on chat and Responses (`x-api-key` there is refused); Messages keeps x-api-key.
+    Object.assign(headers, resolveOpencodeAuthHeaders(key, this._requestFormat, this.provider));
 
     if (this._requestFormat === "claude") {
       headers["anthropic-version"] = "2023-06-01";
@@ -1339,7 +1328,7 @@ export class OpencodeExecutor extends BaseExecutor {
     // any buffered event-stream response. Announcing the stream here keeps that buffering an
     // expected outcome rather than a warning.
     const gatedScope =
-      Boolean(model) && isGatedFreeTierRequest(this._surface(), this.provider, model);
+      Boolean(model) && isGatedFreeTierRequest(this._surface(credentials), this.provider, model);
     if (stream || gatedScope) {
       headers["Accept"] = "text/event-stream";
     }
@@ -1355,11 +1344,12 @@ export class OpencodeExecutor extends BaseExecutor {
     );
 
     this._clientSession = clientSuppliedOpencodeSession(clientHeaders, body);
+    this._fromOpencodeClient = isOpencodeClient(clientHeaders);
     if (clientHeaders || cliDefaults) {
       forwardOpencodeClientHeaders(headers, clientHeaders ?? {}, {
-        synthesizeRequestId: true,
+        opencodeUpstream: true,
         cliDefaults,
-        keepAgentUserAgent: this._surface() === "go" && !gatedScope, // #15311
+        keepAgentUserAgent: this._surface(credentials) === "go" && !gatedScope, // #15311
         sessionBody: projectOpencodeSessionBody(body),
       });
     }
@@ -1459,11 +1449,12 @@ export class OpencodeExecutor extends BaseExecutor {
     const prepared = prepareFreeTierRequest(
       modifiedBody,
       this._requestFormat ?? resolveOpencodeTargetFormat(this.provider, model),
-      this._surface(),
+      this._surface(credentials),
       this.provider,
       model,
       this._clientSession,
-      body
+      body,
+      this._fromOpencodeClient
     );
     modifiedBody = prepared.body;
     // OpenCode's upstream 400s a request when a single enum property carries

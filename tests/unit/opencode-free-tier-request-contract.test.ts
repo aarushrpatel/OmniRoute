@@ -77,6 +77,7 @@ test("the contract applies to free-tier models on the gated surface only", () =>
 
 test("the surface is told apart by base url, so the `oc` alias needs no special case", () => {
   assert.equal(surfaceFromBaseUrl("https://opencode.ai/zen/v1"), "zen");
+  assert.equal(surfaceFromBaseUrl("https://opencode.ai/inference/v1"), "zen");
   assert.equal(surfaceFromBaseUrl("https://opencode.ai/zen/go/v1"), "go");
   assert.equal(surfaceFromBaseUrl("https://api.groq.com/openai/v1"), "other");
   assert.equal(surfaceFromBaseUrl(undefined), "other");
@@ -105,9 +106,12 @@ test("the placeholder carries the names it is given, one entry each", () => {
     tools.map((t) => t.function.name),
     ["glob", "grep", "read"]
   );
-  // Names only: an empty parameter object, so a borrowed name is a list entry rather than
-  // a tool the model could usefully call.
-  assert.deepEqual(tools[0].function.parameters, { type: "object", properties: {} });
+  // No schema was seen for this name: an inert optional property. Never an empty object,
+  // which the upstream refuses for a client tool name (measured 2026-10-14).
+  assert.deepEqual(tools[0].function.parameters, {
+    type: "object",
+    properties: { unused: { type: "string", description: "Unused." } },
+  });
 });
 
 test("responses: several placeholder names keep the flat shape and no tool_choice", () => {
@@ -234,7 +238,7 @@ test("the user-agent contract accepts a versioned opencode client and rejects th
   assert.equal(satisfiesOpencodeUserAgentContract(undefined), false);
 });
 
-test("synthesized identity headers carry a canonical session and request id", () => {
+test("synthesized identity headers carry a canonical session and no request id", () => {
   const headers: Record<string, string> = {};
   forwardOpencodeClientHeaders(
     headers,
@@ -250,7 +254,7 @@ test("synthesized identity headers carry a canonical session and request id", ()
   );
   assert.equal(headers["User-Agent"], DEFAULT_OPENCODE_USER_AGENT);
   assert.match(headers["x-opencode-session"] ?? "", OPENCODE_SESSION_PATTERN);
-  assert.match(headers["x-opencode-request"] ?? "", /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/);
+  assert.equal(headers["x-opencode-request"], undefined);
 });
 
 test("the same conversation keeps the same session id, a different one does not", () => {
@@ -803,7 +807,7 @@ test("a client session id is read case-insensitively, a synthesized one is not b
   assert.equal(clientSuppliedOpencodeSession(undefined), undefined);
 });
 
-test("mergeClientToolsWithObserved: keeps client tools first and appends missing observed names with empty schemas [free-tier-observed-tools]", () => {
+test("mergeClientToolsWithObserved: keeps client tools first and appends missing observed names with a non-empty schema [free-tier-observed-tools]", () => {
   _resetToolObservationForTests();
   const body = {
     ...CHAT_BODY(),
@@ -823,8 +827,11 @@ test("mergeClientToolsWithObserved: keeps client tools first and appends missing
     tools.map((t) => t.function.name),
     ["glob", "read", "edit"]
   );
-  // Appended entries are list entries, not callable tools.
-  assert.deepEqual(tools[2].function.parameters, { type: "object", properties: {} });
+  // An appended entry without a schema seen for it gets the inert property, never `{}`.
+  assert.deepEqual(tools[2].function.parameters, {
+    type: "object",
+    properties: { unused: { type: "string", description: "Unused." } },
+  });
 });
 
 test("mergeClientToolsWithObserved: leaves the body untouched when nothing observed [free-tier-observed-tools]", () => {
