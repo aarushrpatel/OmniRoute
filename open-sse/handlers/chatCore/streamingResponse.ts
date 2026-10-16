@@ -237,10 +237,9 @@ export async function runStreamingResponse(deps: StreamingDeps) {
         },
         onCredentialsRefreshed: handleCredentialsRefreshed,
         refreshCredentials: executeRefreshCredentials,
-        assertManagedLeaseFence: (id) => {
-          assertManagedLeaseFence(id);
-        },
+        assertManagedLeaseFence: (id) => assertManagedLeaseFence(id),
         getProviderCredentials,
+        allowedConnections: deps.allowedConnections ?? null,
       },
       wire: {
         body: translatedBody as Record<string, unknown>,
