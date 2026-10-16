@@ -3920,6 +3920,7 @@
     "builderComboRefStep": "Додати посилання на комбінацію",
     "builderPinnedAccount": "Закріплений обліковий запис",
     "builderLegacyEntry": "Застарілий запис",
+    "builderStaleModel": "Немає в актуальному каталозі",
     "reviewName": "Назва",
     "reviewStrategy": "Стратегія",
     "reviewSteps": "Кроки",
