@@ -1,0 +1,1 @@
+- **fix(opencode):** route each key-based model to the endpoint the published catalog declares ([#PRNUM](https://github.com/diegosouzapw/OmniRoute/pull/PRNUM)) — thanks @maxmad64bis
