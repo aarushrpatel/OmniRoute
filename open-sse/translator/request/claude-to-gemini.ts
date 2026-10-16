@@ -23,6 +23,7 @@ import {
   buildHistoricalToolResultContext,
   mergeConsecutiveSameRoleContents,
   ensureHistoryDoesNotOpenWithFunctionCall,
+  sanitizeFunctionResponseData,
   type GeminiContent,
 } from "./openai-to-gemini/helpers.ts";
 
@@ -366,11 +367,12 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
                 break;
               }
 
+              const parsedContent = content;
               parts.push({
                 functionResponse: {
                   ...(stripFunctionCallId ? {} : { id: toolUseId }),
                   name,
-                  response: { result: content },
+                  response: { result: sanitizeFunctionResponseData(parsedContent) },
                 },
               });
               afterLastToolResult = parts.length;

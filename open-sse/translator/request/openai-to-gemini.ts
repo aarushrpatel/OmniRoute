@@ -54,6 +54,7 @@ import {
   type GeminiContent,
   mergeConsecutiveSameRoleContents,
   ensureHistoryDoesNotOpenWithFunctionCall,
+  sanitizeFunctionResponseData,
 } from "./openai-to-gemini/helpers.ts";
 
 export {
@@ -627,11 +628,12 @@ function openaiToGeminiBase(
               }
               name = sanitizeToolName(name);
 
+              const parsedResp = resp;
               toolParts.push({
                 functionResponse: {
                   ...(toolNameOptions.stripFunctionCallId ? {} : { id: fid }),
                   name: name,
-                  response: { result: resp },
+                  response: { result: sanitizeFunctionResponseData(parsedResp) },
                 },
               });
             }
