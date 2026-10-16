@@ -4,6 +4,8 @@ import { isFreeOnlyFreeType } from "./shared/naming.js";
 
 export interface CapabilityPresetFlags {
   freeOnly?: boolean;
+  /** The caller's inferred-free verdict for this entry (see `inferFreeSignal`). */
+  freeInferred?: boolean;
   toolsOnly?: boolean;
   visionOnly?: boolean;
 }
@@ -21,7 +23,12 @@ export function passesCapabilityPresets(
   enrichment: OmniRouteEnrichmentEntry | undefined,
   flags: CapabilityPresetFlags
 ): boolean {
-  if (flags.freeOnly === true && !isFreeOnlyFreeType(enrichment?.freeType)) return false;
+  if (
+    flags.freeOnly === true &&
+    !isFreeOnlyFreeType(enrichment?.freeType) &&
+    flags.freeInferred !== true
+  )
+    return false;
   if (flags.toolsOnly === true && mapped.capabilities.toolcall !== true) return false;
   if (
     flags.visionOnly === true &&
