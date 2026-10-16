@@ -1361,6 +1361,7 @@ export class OpencodeExecutor extends BaseExecutor {
         cliDefaults,
         keepAgentUserAgent: this._surface() === "go" && !gatedScope, // #15311
         sessionBody: projectOpencodeSessionBody(body),
+        reencodeSession: gatedScope,
       });
     }
 
@@ -1368,8 +1369,6 @@ export class OpencodeExecutor extends BaseExecutor {
     // produced is exactly what the upstream now refuses, and the canonical session it used
     // to overwrite is accepted on that surface (measured 2026-09-17, 200 on
     // muse-spark-1.3-contributor-free via /v1/responses).
-
-    void model;
 
     return headers;
   }
