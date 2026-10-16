@@ -1,0 +1,1 @@
+- skills: regenerate the `cli-keys` mirror so `keys set` lists `--model-access-mode` and `--unrestricted` (base-red #15306).
